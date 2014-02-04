@@ -102,6 +102,9 @@ addGET p h = addRoute $ rGET p h
 addPOST :: UrlPat -> CrunchHandler g s m -> InitM g s m ()
 addPOST p h = addRoute $ rPOST p h
 
+addWAIMiddleware :: Middleware -> InitM g s m ()
+addWAIMiddleware m = InitM $ tell $ mempty { initMiddleware = m }
+
 catchAllRoutes :: CrunchHandler g s m -> InitM g s m ()
 catchAllRoutes h = addRoute $
         Route Nothing (const True) (UrlParser $ const (Just [])) h
@@ -147,7 +150,7 @@ runCrunchServerT :: (Default s) =>
                   (m EResponse -> IO EResponse) ->
                   CrunchOptions g s m ->
                   IO ()
-runCrunchServerT runIO opts = run 8080 $ runOpts opts runIO
+runCrunchServerT runIO opts = run 8080 $ (middlewareStack opts) $ runOpts opts runIO
 
 runCrunchServer :: (Default s) => 
                  (CrunchOptions g s IO) ->
@@ -160,6 +163,7 @@ generateOptions m = do
   return $ CrunchOptions { appRoutes = initRoutes
                          , runTimeSettings = initSettings
                          , startingCtx = g
+                         , middlewareStack = initMiddleware
                          , defaultErrorHandler = defaultErr }
 
 ----------------------- Internal stuff -----------------------

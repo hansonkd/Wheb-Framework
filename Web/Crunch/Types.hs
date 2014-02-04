@@ -18,7 +18,7 @@ import           Data.String (IsString(..))
 import qualified Data.Text.Lazy as T
 import           Data.Typeable
 
-import           Network.Wai (Request, Response, responseBuilder)
+import           Network.Wai (Request, Response, Middleware, responseBuilder)
 import           Network.HTTP.Types.Method
 import           Network.HTTP.Types.Status
 import           Network.HTTP.Types.Header
@@ -30,7 +30,8 @@ class CrunchResponse a where
 
 data HandlerResponse = forall a . CrunchResponse a => HandlerResponse Status a
 type EResponse = Either CrunchError Response
-type CSettings = M.Map T.Text T.Text
+data SettingsValue = forall a. (Typeable a) => MkVal a
+type CSettings = M.Map T.Text SettingsValue
 data CrunchError = Error500 String | Error301 | Error404
   deriving (Show)
 
@@ -38,9 +39,9 @@ instance Error CrunchError where
     strMsg = Error500
 
 data HandlerData g s m = 
-  HandlerData { globalCtx :: g
-              , request :: Request
-              , routeParams :: RouteParamList
+  HandlerData { globalCtx      :: g
+              , request        :: Request
+              , routeParams    :: RouteParamList
               , globalSettings :: CrunchOptions g s m }
 
 data InternalState s =
@@ -51,19 +52,21 @@ instance Default s => Default (InternalState s) where
   def = InternalState def def
 
 data InitOptions g s m =
-  InitOptions { initRoutes :: [ Route g s m ]
-              , initSettings :: CSettings }
+  InitOptions { initRoutes      :: [ Route g s m ]
+              , initSettings    :: CSettings
+              , initMiddleware  :: Middleware }
 
 data CrunchOptions g s m = MonadIO m => 
   CrunchOptions { appRoutes           :: [ Route g s m ]
                 , runTimeSettings     :: CSettings
                 , startingCtx         :: g
+                , middlewareStack      :: Middleware
                 , defaultErrorHandler :: CrunchError -> CrunchHandler g s m }
 
 instance Monoid (InitOptions g s m) where
-  mappend (InitOptions a1 b1) (InitOptions a2 b2) = 
-      InitOptions (a1 <> a2) (b1 <> b2)
-  mempty = InitOptions mempty mempty
+  mappend (InitOptions a1 b1 c1) (InitOptions a2 b2 c2) = 
+      InitOptions (a1 <> a2) (b1 <> b2) (c1 . c2)
+  mempty = InitOptions mempty mempty id
 
 newtype InitM g s m a = InitM { runInitM :: WriterT (InitOptions g s m) IO a}
   deriving (Functor, Applicative, Monad, MonadIO)
