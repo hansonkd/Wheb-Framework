@@ -31,7 +31,7 @@ class CrunchResponse a where
 data HandlerResponse = forall a . CrunchResponse a => HandlerResponse Status a
 type EResponse = Either CrunchError Response
 data SettingsValue = forall a. (Typeable a) => MkVal a
-type CSettings = M.Map T.Text SettingsValue
+type CSettings = M.Map T.Text T.Text
 data CrunchError = Error500 String | Error301 | Error404
   deriving (Show)
 
@@ -54,19 +54,21 @@ instance Default s => Default (InternalState s) where
 data InitOptions g s m =
   InitOptions { initRoutes      :: [ Route g s m ]
               , initSettings    :: CSettings
-              , initMiddleware  :: Middleware }
+              , initWaiMw       :: Middleware
+              , initCrunchyMw   :: [ CrunchMiddleware g s m ] }
 
 data CrunchOptions g s m = MonadIO m => 
   CrunchOptions { appRoutes           :: [ Route g s m ]
                 , runTimeSettings     :: CSettings
                 , startingCtx         :: g
-                , middlewareStack      :: Middleware
+                , waiStack            :: Middleware
+                , crunchyMiddlewares  :: [ CrunchMiddleware g s m ]
                 , defaultErrorHandler :: CrunchError -> CrunchHandler g s m }
 
 instance Monoid (InitOptions g s m) where
-  mappend (InitOptions a1 b1 c1) (InitOptions a2 b2 c2) = 
-      InitOptions (a1 <> a2) (b1 <> b2) (c1 . c2)
-  mempty = InitOptions mempty mempty id
+  mappend (InitOptions a1 b1 c1 d1) (InitOptions a2 b2 c2 d2) = 
+      InitOptions (a1 <> a2) (b1 <> b2) (c2 . c1) (d2 <> d1)
+  mempty = InitOptions mempty mempty id mempty
 
 newtype InitM g s m a = InitM { runInitM :: WriterT (InitOptions g s m) IO a}
   deriving (Functor, Applicative, Monad, MonadIO)
@@ -84,11 +86,11 @@ instance MonadTrans (CrunchT g s) where
   lift = CrunchT . lift . lift . lift
 
 instance (Monad m) => MonadError CrunchError (CrunchT g s m) where
-    throwError = CrunchT  . throwError
-    catchError (CrunchT  m) f = CrunchT  (catchError m (runCrunchT . f))
+    throwError = CrunchT . throwError
+    catchError (CrunchT m) f = CrunchT  (catchError m (runCrunchT . f))
 
 type CrunchHandler g s m = CrunchT g s m HandlerResponse
-
+type CrunchMiddleware g s m = CrunchT g s m (Maybe HandlerResponse)
 ----------------- Routes -----------------
 
 type  RouteParamList = [(T.Text, ParsedChunk)]

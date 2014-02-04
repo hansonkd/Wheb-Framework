@@ -67,7 +67,7 @@ getPOSTParams = liftM (fmap f . fst) getRawPOST
 
 getPostParam :: MonadIO m => T.Text -> CrunchT g s m (Maybe T.Text)
 getPostParam k = liftM (lookup k) getPOSTParams 
-  
+
 getQuery :: Monad m => CrunchT g s m Query
 getQuery = getWithRequest queryString
 
@@ -103,7 +103,10 @@ addPOST :: UrlPat -> CrunchHandler g s m -> InitM g s m ()
 addPOST p h = addRoute $ rPOST p h
 
 addWAIMiddleware :: Middleware -> InitM g s m ()
-addWAIMiddleware m = InitM $ tell $ mempty { initMiddleware = m }
+addWAIMiddleware m = InitM $ tell $ mempty { initWaiMw = m }
+
+addCrunchyMiddleware :: Middleware -> InitM g s m ()
+addCrunchyMiddleware m = InitM $ tell $ mempty { initCrunchyMw = m }
 
 catchAllRoutes :: CrunchHandler g s m -> InitM g s m ()
 catchAllRoutes h = addRoute $
@@ -137,20 +140,25 @@ runOpts :: (Default s) => CrunchOptions g s m ->
                           IO Response
 runOpts opts@(CrunchOptions {..}) runIO r = do
   res <- case (findUrlMatch stdMthd pathChunks appRoutes) of
-            Just (h, params) -> runIO $ runCrunchHandler opts h params r
+            Just (h, params) -> runIO $ do
+                  (mRes, st) <- runMiddlewares opts crunchyMiddlewares r
+                  case mRes of
+                     Just resp -> return $ Right resp
+                     Nothing -> runCrunchHandler opts h params st r
             Nothing          -> return $ Left Error404
   either handleError return res
   where pathChunks = fmap T.fromStrict $ pathInfo r
         stdMthd = either (\_-> GET) id $ parseMethod $ requestMethod r
         handleError err = do
-          errRes <- runIO $ runCrunchHandler opts (defaultErrorHandler err) [] r
+          errRes <- runIO $ 
+                      runCrunchHandler opts (defaultErrorHandler err) [] def r
           either (return . (const uhOh)) return errRes
 
 runCrunchServerT :: (Default s) => 
                   (m EResponse -> IO EResponse) ->
                   CrunchOptions g s m ->
                   IO ()
-runCrunchServerT runIO opts = run 8080 $ (middlewareStack opts) $ runOpts opts runIO
+runCrunchServerT runIO opts = run 8080 $ (waiStack opts) $ runOpts opts runIO
 
 runCrunchServer :: (Default s) => 
                  (CrunchOptions g s IO) ->
@@ -163,18 +171,49 @@ generateOptions m = do
   return $ CrunchOptions { appRoutes = initRoutes
                          , runTimeSettings = initSettings
                          , startingCtx = g
-                         , middlewareStack = initMiddleware
+                         , waiStack = initMiddleware
+                         , crunchyMiddlewares = []
                          , defaultErrorHandler = defaultErr }
 
 ----------------------- Internal stuff -----------------------
-runCrunchHandler :: (Default s) =>
+runMiddlewares :: (Default s, Monad m) =>
+                  CrunchOptions g s m ->
+                  [CrunchMiddleware g s m] ->
+                  Request -> 
+                  m (Maybe Response, s)
+runMiddlewares opts mWs r = loop mWs def
+    where loop [] st = return (Nothing, st)
+          loop (mw:mws) st = do
+                  mwResult <-  (runCrunchMiddleware opts r st mw)
+                  case mwResult of
+                        (Just resp, nst) -> return mwResult
+                        (Nothing, nst)   -> loop mws nst
+
+runCrunchMiddleware :: (Default s, Monad m) =>
+                    CrunchOptions g s m ->
+                    Request -> 
+                    s ->
+                    CrunchMiddleware g s m ->
+                    m (Maybe Response, s)
+runCrunchMiddleware opts@(CrunchOptions {..}) r st mW = do
+        (eresp, InternalState {..}) <- flip runStateT (InternalState st def) $ do
+                  flip runReaderT (HandlerData startingCtx r [] opts) $
+                    runErrorT $
+                    runCrunchT mW
+        return $ (convertResponse respHeaders eresp, appState)
+  where convertResponse hds (Right (Just (HandlerResponse status resp))) =
+                              Just (toResponse status (M.toList hds) resp)
+        convertResponse _ _ = Nothing
+                          
+runCrunchHandler :: (Default s, Monad m) =>
                     CrunchOptions g s m ->
                     CrunchHandler g s m ->
                     RouteParamList ->
+                    s ->
                     Request -> 
                     m EResponse
-runCrunchHandler opts@(CrunchOptions {..}) handler params r = do
-  (resp, InternalState {..}) <- flip runStateT def $ do
+runCrunchHandler opts@(CrunchOptions {..}) handler params st r = do
+  (resp, InternalState {..}) <- flip runStateT (InternalState st def) $ do
             flip runReaderT (HandlerData startingCtx r params opts) $
               runErrorT $
               runCrunchT handler
