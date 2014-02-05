@@ -8,6 +8,7 @@ import qualified Data.Map as M
 import qualified Data.Text.Lazy as T
 import           Data.Typeable
 import           Network.Wai
+import           Network.Wai.Handler.Warp (defaultSettings)
 import           Network.HTTP.Types.Method
 
 import           Web.Wheb.Internal
@@ -59,7 +60,7 @@ generateOptions m = do
   (g, InitOptions {..}) <- runWriterT (runInitM m)
   return $ WhebOptions { appRoutes = initRoutes
                          , runTimeSettings = initSettings
-                         , port = 8080
+                         , warpSettings = defaultSettings
                          , startingCtx = g
                          , waiStack = initWaiMw
                          , whebMiddlewares = initWhebMw

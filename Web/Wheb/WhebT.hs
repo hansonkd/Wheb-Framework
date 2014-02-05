@@ -19,7 +19,7 @@ import           Network.HTTP.Types.Header
 import           Network.HTTP.Types.Status
 import           Network.HTTP.Types.URI
 import           Network.Wai
-import           Network.Wai.Handler.Warp (run)
+import           Network.Wai.Handler.Warp as W
 import           Network.Wai.Parse
 
 import           Web.Wheb.Internal
@@ -150,10 +150,10 @@ runWhebServerT :: (Default s) =>
                   (m EResponse -> IO EResponse) ->
                   WhebOptions g s m ->
                   IO ()
-runWhebServerT runIO opts = do
-    putStrLn $ "Now running on port " ++ (show $ port opts)
-    run (port opts) $ 
-        (waiStack opts) $ 
+runWhebServerT runIO opts@(WhebOptions {..}) = do
+    putStrLn $ "Now running on port " ++ (show $ W.settingsPort $ warpSettings)
+    runSettings warpSettings $ 
+        waiStack $ 
         optsToApplication opts runIO
 
 runWhebServer :: (Default s) => 

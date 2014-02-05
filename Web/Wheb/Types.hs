@@ -21,7 +21,7 @@ import qualified Data.Text.Lazy as T
 import           Data.Typeable
 
 import           Network.Wai (Request, Response, Middleware, responseBuilder)
-import           Network.Wai.Handler.Warp (Port)
+import           Network.Wai.Handler.Warp as Warp
 import           Network.Wai.Parse
 import           Network.HTTP.Types.Method
 import           Network.HTTP.Types.Status
@@ -66,9 +66,9 @@ data InitOptions g s m =
               , initWhebMw   :: [ WhebMiddleware g s m ] }
 
 data WhebOptions g s m = MonadIO m => 
-  WhebOptions { appRoutes             :: [ Route g s m ]
+  WhebOptions { appRoutes           :: [ Route g s m ]
               , runTimeSettings     :: CSettings
-              , port                :: Port
+              , warpSettings        :: Warp.Settings
               , startingCtx         :: g
               , waiStack            :: Middleware
               , whebMiddlewares     :: [ WhebMiddleware g s m ]
