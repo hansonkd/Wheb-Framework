@@ -37,7 +37,8 @@ setCookie' k v sc = setRawHeader ("Set-Cookie", cookieText)
         cookieText = B.toByteString $ renderSetCookie cookie
         
 getCookies :: Monad m => WhebT g s m CookiesText
-getCookies = (getHeader "Cookie") >>= (return . parseFunc . (fromMaybe T.empty))
+getCookies = (getRequestHeader "Cookie") >>= 
+             (return . parseFunc . (fromMaybe T.empty))
   where parseFunc = parseCookiesText . lazyTextToSBS
 
 getCookie :: Monad m => Text -> WhebT g s m (Maybe Text)

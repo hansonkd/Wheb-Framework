@@ -16,33 +16,57 @@ import           Web.Wheb.Routes
 import           Web.Wheb.Types
 import           Web.Wheb.Utils
 
+
+-- * Route building
+
+-- ** Convenience constructors
 rGET :: (Maybe T.Text) -> UrlPat -> WhebHandlerT g s m -> Route g s m
 rGET n p = Route n (==GET) (compilePat p)
 
 rPOST :: (Maybe T.Text) -> UrlPat -> WhebHandlerT g s m -> Route g s m
 rPOST n p = Route n (==POST) (compilePat p)
 
+-- ** Named routes convenience functions
 addGET :: T.Text -> UrlPat -> WhebHandlerT g s m -> InitM g s m ()
 addGET n p h = addRoute $ rGET (Just n) p h
 
 addPOST :: T.Text -> UrlPat -> WhebHandlerT g s m -> InitM g s m ()
 addPOST n p h = addRoute $ rPOST (Just n) p h
 
-addWAIMiddleware :: Middleware -> InitM g s m ()
-addWAIMiddleware m = InitM $ tell $ mempty { initWaiMw = m }
-
-addWhebMiddleware :: WhebMiddleware g s m -> InitM g s m ()
-addWhebMiddleware m = InitM $ tell $ mempty { initWhebMw = [m] }
-
-catchAllRoutes :: WhebHandlerT g s m -> InitM g s m ()
-catchAllRoutes h = addRoute $ Route Nothing (const True) parser h
-        where parser = UrlParser (const (Just [])) (const (Right $ T.pack "/*"))
+-- ** Adding raw routes
 
 addRoute :: Route g s m -> InitM g s m ()
 addRoute r = addRoutes [r]
 
 addRoutes :: [Route g s m] -> InitM g s m ()
 addRoutes rs = InitM $ tell $ mempty { initRoutes = rs }
+
+-- ** Utility routes
+
+-- | Catch all routes regardless of method or path
+catchAllRoutes :: WhebHandlerT g s m -> InitM g s m ()
+catchAllRoutes h = addRoute $ Route Nothing (const True) parser h
+        where parser = UrlParser (const (Just [])) (const (Right $ T.pack "/*"))
+
+
+-- * Middlewares
+-- .
+-- There are two types of middlewares, pure "WAI" middlewares and "Wheb" 
+-- specific middlewares. A middlware that returns a response will stop the
+-- request from reaching the handler.
+-- .
+-- Wheb middlwares have the ability to change the request-state before it
+-- reaches the handler. the Auth module makes use of this to set the current
+-- user. 
+
+-- | Add generic "WAI" middleware
+addWAIMiddleware :: Middleware -> InitM g s m ()
+addWAIMiddleware m = InitM $ tell $ mempty { initWaiMw = m }
+
+-- | Add "Wheb" specific middleware
+addWhebMiddleware :: WhebMiddleware g s m -> InitM g s m ()
+addWhebMiddleware m = InitM $ tell $ mempty { initWhebMw = [m] }
+
 
 -- | Help prevent monomorphism errors for simple settings.
 addSetting :: T.Text -> T.Text -> InitM g s m ()

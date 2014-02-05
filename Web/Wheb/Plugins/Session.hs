@@ -16,9 +16,6 @@ module Web.Wheb.Plugins.Session
   , clearSessionKey
   ) where
     
--- | Initial pass on abstract plugin for Sessions.
---   Possibly add support for Typable to ease typecasting.
-
 import Control.Monad.IO.Class
 import Control.Monad (liftM)
 import Data.Maybe
@@ -27,10 +24,13 @@ import Data.Text.Lazy.Encoding as T
 import Data.UUID
 import Data.UUID.V4
 
-
 import Web.Wheb
 import Web.Wheb.Cookie
 import Web.Wheb.Types
+
+-- | Initial pass on abstract plugin for Sessions.
+--   Possibly add support for Typable to ease typecasting.
+
 
 session_cookie_key = pack "-session-"
 

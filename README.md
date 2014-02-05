@@ -1,7 +1,7 @@
 Wheb
 ======
 
-The easy Haskell WAI Framework
+The Batteries-Included Haskell WAI Framework
 
 Objective
 ---------

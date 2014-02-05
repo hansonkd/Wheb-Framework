@@ -88,7 +88,7 @@ buildPat pats params = fmap addSlashes $ build [] pats
     where build acc [] = Right acc
           build acc ((Chunk c):cs)         = build (acc <> [c]) cs
           build acc ((Composed xs):cs)     = build acc (xs <> cs)
-          build acc ((FuncChunk k f t):cs) = 
+          build acc ((FuncChunk k _ t):cs) = 
               case (showParam t k params) of
                       (Right  v)  -> build (acc <> [v]) cs
                       (Left err)  -> Left err
