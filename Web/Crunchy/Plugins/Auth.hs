@@ -2,10 +2,11 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Web.Crunch.Plugins.Auth 
+module Web.Crunchy.Plugins.Auth 
   ( AuthUser (..)
   , AuthContainer (..)
   , AuthApp (..)
+  , AuthState (..)
   , AuthBackend (..)
   , AuthError (..)
   
@@ -13,10 +14,12 @@ module Web.Crunch.Plugins.Auth
   , Password
   , PwHash
   
+  , authMiddleware
   , login
   , logout
   , register
   , getCurrentUser
+  , queryCurrentUser
   , loginRequired
   , makePwHash
   , verifyPw
@@ -32,9 +35,9 @@ import Data.Text.Lazy as T
 import Data.Text.Lazy.Encoding as T
 import Data.Text.Encoding as ES
 
-import Web.Crunch
-import Web.Crunch.Types
-import Web.Crunch.Plugins.Session
+import Web.Crunchy
+import Web.Crunchy.Types
+import Web.Crunchy.Plugins.Session
 
 
 type UserKey = Text
@@ -44,36 +47,45 @@ type PwHash = Text
 data AuthError = DuplicateUsername | UserDoesNotExist | InvalidPassword
   deriving (Show)
 
-data AuthUser = AuthUser 
-  { uniqueUserKey :: UserKey
-  } deriving (Show)
+data AuthUser = AuthUser { uniqueUserKey :: UserKey } deriving (Show)
+type PossibleUser = Maybe AuthUser
 
 data AuthContainer = forall r. AuthBackend r => AuthContainer r
 
 class SessionApp a => AuthApp a where
   getAuthContainer :: a -> AuthContainer
 
+class AuthState a where
+  getAuthUser    :: a -> PossibleUser 
+  modifyAuthUser :: (PossibleUser -> PossibleUser) -> a -> a
+
 class AuthBackend c where
-  backendLogin :: (AuthApp a, MonadIO m) => SessionApp a => UserKey -> Password -> c -> CrunchT a b m (Either AuthError AuthUser)
-  backendRegister :: (AuthApp a, MonadIO m) => UserKey -> Password -> c -> CrunchT a b m (Either AuthError AuthUser)
-  backendGetUser :: (AuthApp a, MonadIO m) => UserKey -> c -> CrunchT a b m (Maybe AuthUser)
-  backendLogout :: (AuthApp a, MonadIO m) => c -> CrunchT a b m ()
+  backendLogin    :: (AuthApp a, MonadIO m) => SessionApp a => UserKey -> Password -> c -> CrunchyT a b m (Either AuthError AuthUser)
+  backendRegister :: (AuthApp a, MonadIO m) => UserKey -> Password -> c -> CrunchyT a b m (Either AuthError AuthUser)
+  backendGetUser  :: (AuthApp a, MonadIO m) => UserKey -> c -> CrunchyT a b m (Maybe AuthUser)
+  backendLogout   :: (AuthApp a, MonadIO m) => c -> CrunchyT a b m ()
   backendLogout _ =  getUserSessionKey >>= deleteSessionValue
 
 runWithContainer :: (AuthApp a, MonadIO m) =>
-                    (forall r. AuthBackend r => r -> CrunchT a s m b) -> 
-                    CrunchT a s m b
+                    (forall r. AuthBackend r => r -> CrunchyT a s m b) -> 
+                    CrunchyT a s m b
 runWithContainer f = do
   AuthContainer authStore <- getWithApp getAuthContainer
   f authStore
 
-getUserSessionKey :: (AuthApp a, MonadIO m) => CrunchT a b m Text
+authMiddleware :: (AuthApp a, AuthState b, MonadIO m) => CrunchyMiddleware a b m
+authMiddleware = do
+    cur <- queryCurrentUser
+    modifyReqState' (modifyAuthUser (const cur))
+    return Nothing
+
+getUserSessionKey :: (AuthApp a, MonadIO m) => CrunchyT a b m Text
 getUserSessionKey = return $ T.pack "user-id" -- later read from settings.
 
-register :: (AuthApp a, MonadIO m) => UserKey -> Password -> CrunchT a b m (Either AuthError AuthUser)
+register :: (AuthApp a, MonadIO m) => UserKey -> Password -> CrunchyT a b m (Either AuthError AuthUser)
 register un pw = runWithContainer $ backendRegister un pw
 
-login :: (AuthApp a, MonadIO m) => UserKey -> Password -> CrunchT a b m (Either AuthError AuthUser)
+login :: (AuthApp a, MonadIO m) => UserKey -> Password -> CrunchyT a b m (Either AuthError AuthUser)
 login un pw = do
   loginResult <- (runWithContainer $ backendLogin un pw)
   case loginResult of
@@ -84,17 +96,21 @@ login un pw = do
       _ -> return ()
   return loginResult
 
-logout :: (AuthApp a, MonadIO m) => CrunchT a b m ()
+logout :: (AuthApp a, MonadIO m) => CrunchyT a b m ()
 logout = runWithContainer $ backendLogout
 
-getCurrentUser :: (AuthApp a, MonadIO m) => CrunchT a b m (Maybe AuthUser)
-getCurrentUser = getUserSessionKey >>= getSessionValue' (T.pack "") >>=
-                            (\uid -> runWithContainer $ backendGetUser uid)
+getCurrentUser :: (AuthState b, MonadIO m) => CrunchyT a b m (Maybe AuthUser)
+getCurrentUser = liftM getAuthUser getReqState
 
-loginRequired :: CrunchT a b m () -> CrunchT a b m ()
+queryCurrentUser :: (AuthApp a, MonadIO m) => CrunchyT a b m (Maybe AuthUser)
+queryCurrentUser = getUserSessionKey >>= 
+                 getSessionValue' (T.pack "") >>=
+                 (\uid -> runWithContainer $ backendGetUser uid)
+
+loginRequired :: CrunchyT a b m () -> CrunchyT a b m ()
 loginRequired action = action
 
-makePwHash :: MonadIO m => Password -> CrunchT a b m PwHash
+makePwHash :: MonadIO m => Password -> CrunchyT a b m PwHash
 makePwHash pw = liftM (T.fromStrict . ES.decodeUtf8) $ 
                         liftIO $ makePassword (ES.encodeUtf8 $ T.toStrict pw) 14
 
