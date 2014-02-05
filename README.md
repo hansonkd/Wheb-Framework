@@ -1,4 +1,4 @@
-Let's get Wheb!
+Wheb
 ======
 
 The easy Haskell WAI Framework
@@ -10,12 +10,12 @@ The primary goal of the Wheb framework is to extend the functionality of the bas
 
 So, I built the Wheb framework with the explicit goal that Template Haskell not be included in any part of the core server.
 
-Other libraries feature transformers to roll your own Reader and State based Monads, but it would be nice if they were built in. Practically every server will have a global read-only context that shares resources between threads and a request state that can change during request processing. Having these resources built in allows for plugins that can always expect those resources to be there.
+Other libraries feature transformers to roll your own Reader and State based applicaiton Monads, but it would be nice if they were built in. Practically every server will have a global read-only context that shares resources between threads and a request state that can change during request processing. Having these resources built in allows for plugins that can always expect those resources to be there.
 
 Features
 --------
 
-Currently Crunchy is still very early in development. I have included some features that I hope will cover most use cases.
+Currently Wheb is still very early in development. I have included some features that I hope will cover most use cases.
 
 
 #### Easy Setup.
@@ -127,20 +127,10 @@ You can run handlers and debug directly without a server:
 main :: IO ()
 main = do
   opts <- generateOptions $ do
-      -- | Add standard WAI middlware
-      addWAIMiddleware logStdoutDev
-      
-      -- | Add Auth middlware for current user.
-      addCrunchyMiddleware authMiddleware
-
-      -- | Overloaded URLs
+      addWhebMiddleware authMiddleware
       addGET "blog_int"  ("blog" </> (grabInt "pk")) $ handleSimple "Number"
-      
-      -- | Initialize any backends.
       sess <- initSessionMemory
       auth <- initAuthMemory
-      
-      -- | Return your new global context.
       return (GlobalApp sess auth)
   
   -- | Ability to easily run your handlers w/o a server.
@@ -161,4 +151,13 @@ main = do
 ```
 
 #### Plugins
-There are 2 proof-of-concept plugins, Auth and Sessions. Both are implemented to be abstract interfaces for different backends. Included is a Memory backend that destroys values on server shutdown. Other backends to allow data persistence can be easily added. 
+There are 2 proof-of-concept plugins, Auth and Sessions. Both are implemented to be abstract interfaces for different backends. Included is a Memory backend that destroys values on server shutdown. Other backends to allow data persistence can be easily added.
+
+
+#### Speed
+When Wheb is deployed, it uses warp. This means you get great performance right away with almost zero configuration.
+
+These benchmarks were taken on a base configuration linode server...
+
+```
+```
