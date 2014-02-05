@@ -73,10 +73,13 @@ runWithContainer f = do
   AuthContainer authStore <- getWithApp getAuthContainer
   f authStore
 
+authSetUser :: (AuthApp a, AuthState b, MonadIO m) => PossibleUser -> CrunchyT a b m ()
+authSetUser cur = modifyReqState' (modifyAuthUser (const cur))
+
 authMiddleware :: (AuthApp a, AuthState b, MonadIO m) => CrunchyMiddleware a b m
 authMiddleware = do
     cur <- queryCurrentUser
-    modifyReqState' (modifyAuthUser (const cur))
+    authSetUser cur
     return Nothing
 
 getUserSessionKey :: (AuthApp a, MonadIO m) => CrunchyT a b m Text
@@ -85,7 +88,7 @@ getUserSessionKey = return $ T.pack "user-id" -- later read from settings.
 register :: (AuthApp a, MonadIO m) => UserKey -> Password -> CrunchyT a b m (Either AuthError AuthUser)
 register un pw = runWithContainer $ backendRegister un pw
 
-login :: (AuthApp a, MonadIO m) => UserKey -> Password -> CrunchyT a b m (Either AuthError AuthUser)
+login :: (AuthApp a, AuthState b, MonadIO m) => UserKey -> Password -> CrunchyT a b m (Either AuthError AuthUser)
 login un pw = do
   loginResult <- (runWithContainer $ backendLogin un pw)
   case loginResult of
@@ -93,11 +96,12 @@ login un pw = do
           sessionKey <- getUserSessionKey
           deleteSessionValue sessionKey
           setSessionValue sessionKey userKey
+          authSetUser (Just au)
       _ -> return ()
   return loginResult
 
-logout :: (AuthApp a, MonadIO m) => CrunchyT a b m ()
-logout = runWithContainer $ backendLogout
+logout :: (AuthApp a, AuthState b, MonadIO m) => CrunchyT a b m ()
+logout = (runWithContainer backendLogout) >> (authSetUser Nothing)
 
 getCurrentUser :: (AuthState b, MonadIO m) => CrunchyT a b m (Maybe AuthUser)
 getCurrentUser = liftM getAuthUser getReqState
