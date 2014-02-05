@@ -21,13 +21,82 @@ Currently Crunchy is still very early in development. I have included some featu
 #### Easy Setup.
 Here is a Crunchy server:
 
+```haskell
+import           Web.Crunchy
+import           Data.Text.Lazy (pack)
+
+main :: IO ()
+main = do
+  opts <- generateOptions $ addGET (pack ".") rootPat $ (text (pack "Hi!"))
+  runCrunchyServer (opts :: MinOpts)
 ```
+
+Route handlers can be simple:
+```haskell
+handleSimple :: T.Text -> CrunchyHandler GlobalApp RequestState IO
+handleSimple t = html $ "<h1>" <> t <> "</h1>"
+```
+
+Or add some complexity...
+```haskell
+homePage :: CrunchyHandler GlobalApp RequestState IO
+homePage = do
+  -- | Keep track of sessions...
+  v <- getSessionValue "has-visted"
+  setSessionValue "has-visted" "True"
+  case v of
+    Just _  -> do
+        url  <- getRoute "blog_txt" [("slug", MkChunk ("hey" :: T.Text))]
+        html $ "<h1>Welcome back!</h1><a href=\"" <> url <> "\">Go to blog</a>"
+    Nothing -> do
+        url  <- getRoute "faq" []
+        html $ "<h1>Hello Stranger!</h1><a href=\"" <> url <> "\">FAQ</a>"
+```
+
+As you scale your code base, the core simplicity remains.
+```haskell
 main :: IO ()
 main = do
   opts <- generateOptions $ do
-      addGET rootPat $ html "<h1>Intercept 2</h1>"
+      -- | Add standard WAI middlware
+      addWAIMiddleware logStdoutDev
+      
+      -- | Add Auth middlware for current user.
+      addCrunchyMiddleware authMiddleware
+      
+      -- | Add your application routes...
+      addGET "root" rootPat homePage
+      addGET "faq" "faq" $  handleSimple "FAQ"
+      addPOST "post_store" ("post" </> "store") handlePOST
+      
+      -- | Auth Handlers.
+      addGET  "current"  "current"  handleCurrentUser
+      addPOST "register" "register" handleRegister
+      addPOST "login"    "login"    handleLogin
+      
+      -- | Overloaded URLs
+      addGET "blog_int"  ("blog" </> (grabInt "pk")) $ handleSimple "Number"
+      addGET  "blog_txt" ("blog" </> (grabText "slug")) $ 
+            (getRouteParam "slug") >>= (handleSimple . fromJust)
+            
+      -- | Add sub-init script that is in a sub-app to keep things tidy
+      addBlogPaths
+      
+      -- | Initialize any backends.
+      sess <- initSessionMemory
+      auth <- initAuthMemory
+      
+      -- | Return your new global context.
+      return (GlobalApp sess auth)
+      
+  -- | Or run a high speed warp server.
   runCrunchyServer opts
 ```
+
+But it also gives you the ability to scale the complexity of your application
+without sacrificing this core simplicity
+
+
 #### URLs
 Crunchy uses named dynamically typed URLs. While this means you won't get compile-time checking of your URLs, it gives you some form of type safety beyond simple text. Also, because they are named you can generate one of your URLs based on its name and parameters.
 
