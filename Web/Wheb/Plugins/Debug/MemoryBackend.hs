@@ -1,4 +1,4 @@
-module Web.Crunchy.Plugins.Debug.MemoryBackend where
+module Web.Wheb.Plugins.Debug.MemoryBackend where
 
 import Control.Monad (liftM)
 import Control.Monad.IO.Class
@@ -7,10 +7,10 @@ import Data.Text.Lazy (Text)
 import Data.Map as M
 import Data.Maybe (fromMaybe, fromJust)
 
-import Web.Crunchy
-import Web.Crunchy.Types
-import Web.Crunchy.Plugins.Auth
-import Web.Crunchy.Plugins.Session
+import Web.Wheb
+import Web.Wheb.Types
+import Web.Wheb.Plugins.Auth
+import Web.Wheb.Plugins.Session
 
 data SessionData = SessionData 
   { sessionMemory ::  TVar (M.Map Text (M.Map Text Text)) }

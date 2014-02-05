@@ -1,4 +1,4 @@
-Let's get Crunchy!
+Let's get Wheb!
 ======
 
 The easy Haskell WAI Framework
@@ -6,9 +6,9 @@ The easy Haskell WAI Framework
 Objective
 ---------
 
-The primary goal of the Crunchy framework is to extend the functionality of the base WAI library as well as provide an easy entry point into Haskell web servers. Other servers such as Snap and Yesod make use of a number of extensions and Template Haskell. While TH is powerful in allowing you to build compile time type safe urls, it is another hurdle for someone starting out in Haskell to learn before they can get started. While Yesod and others have non-TH versions of their libraries, it just adds fragmentation within the documenation and tutorials about how to effectively use it.
+The primary goal of the Wheb framework is to extend the functionality of the base WAI library as well as provide an easy entry point into Haskell web servers. Other servers such as Snap and Yesod make use of a number of extensions and Template Haskell. While TH is powerful in allowing you to build compile time type safe urls, it is another hurdle for someone starting out in Haskell to learn before they can get started. While Yesod and others have non-TH versions of their libraries, it just adds fragmentation within the documenation and tutorials about how to effectively use it.
 
-So, I built the Crunchy framework with the explicit goal that Template Haskell not be included in any part of the core server.
+So, I built the Wheb framework with the explicit goal that Template Haskell not be included in any part of the core server.
 
 Other libraries feature transformers to roll your own Reader and State based Monads, but it would be nice if they were built in. Practically every server will have a global read-only context that shares resources between threads and a request state that can change during request processing. Having these resources built in allows for plugins that can always expect those resources to be there.
 
@@ -22,24 +22,26 @@ Currently Crunchy is still very early in development. I have included some featu
 Here is a Crunchy server:
 
 ```haskell
-import           Web.Crunchy
+import           Web.Wheb
 import           Data.Text.Lazy (pack)
 
 main :: IO ()
 main = do
   opts <- generateOptions $ addGET (pack ".") rootPat $ (text (pack "Hi!"))
-  runCrunchyServer (opts :: MinOpts)
+  runWhebServer (opts :: MinOpts)
 ```
 
 Route handlers can be simple:
+
 ```haskell
-handleSimple :: T.Text -> CrunchyHandler GlobalApp RequestState IO
+handleSimple :: T.Text -> WhebHandler GlobalApp RequestState
 handleSimple t = html $ "<h1>" <> t <> "</h1>"
 ```
 
 Or add some complexity...
+
 ```haskell
-homePage :: CrunchyHandler GlobalApp RequestState IO
+homePage :: WhebHandler GlobalApp RequestState
 homePage = do
   -- | Keep track of sessions...
   v <- getSessionValue "has-visted"
@@ -54,6 +56,7 @@ homePage = do
 ```
 
 As you scale your code base, the core simplicity remains.
+
 ```haskell
 main :: IO ()
 main = do
@@ -89,18 +92,14 @@ main = do
       -- | Return your new global context.
       return (GlobalApp sess auth)
       
-  -- | Or run a high speed warp server.
   runCrunchyServer opts
 ```
 
-But it also gives you the ability to scale the complexity of your application
-without sacrificing this core simplicity
-
 
 #### URLs
-Crunchy uses named dynamically typed URLs. While this means you won't get compile-time checking of your URLs, it gives you some form of type safety beyond simple text. Also, because they are named you can generate one of your URLs based on its name and parameters.
+Crunchy uses named dynamically typed URLs. While this means you won't get compile-time checking of your URLs, it gives you some form of type safety beyond simple text. 
 
-```
+```haskell
 -- | This URL will match /blog/1 but not /blog/foo
 url = compilePat ("blog" </> (grabInt "pk"))
 -- | Output will be Right "/blog/3/"
@@ -109,11 +108,57 @@ generateUrl url [("pk", MkChunk 3)]
 generateUrl url [("pk", MkChunk 'A')]
 ```
 
+Also, because they are named you can generate one of your URLs based on its name and parameters.
+
+```haskell
+url <- getRoute "blog_txt" [("slug", MkChunk ("hey" :: T.Text))]
+```
+
 #### Middlewares
-Crunchy supports WAI and its own CrunchyMiddlwares. CrunchyMiddlwares allow you
-to change the state before it reaches your handler. It also allows you to return a response to intercept requests.
+Crunchy supports WAI and its own CrunchyMiddlwares. CrunchyMiddlwares allow you to change the state before it reaches your handler. It also allows you to return a response to intercept requests.
 
 The included auth middlware makes use of the ability to change state to set the current user before each Handler.
+
+#### Debugging
+
+You can run handlers and debug directly without a server:
+
+```haskell
+main :: IO ()
+main = do
+  opts <- generateOptions $ do
+      -- | Add standard WAI middlware
+      addWAIMiddleware logStdoutDev
+      
+      -- | Add Auth middlware for current user.
+      addCrunchyMiddleware authMiddleware
+
+      -- | Overloaded URLs
+      addGET "blog_int"  ("blog" </> (grabInt "pk")) $ handleSimple "Number"
+      
+      -- | Initialize any backends.
+      sess <- initSessionMemory
+      auth <- initAuthMemory
+      
+      -- | Return your new global context.
+      return (GlobalApp sess auth)
+  
+  -- | Ability to easily run your handlers w/o a server.
+  hResult <- debugHandlerIO opts $ handleSimple "Hello from console!"
+  either print (\r -> (showResponseBody r) >>= print) hResult
+  
+  -- | Or simply debug some stuff.
+  debugHandlerIO opts $ do
+    liftIO $ putStrLn "Testing..."
+    liftIO $ putStrLn "\n\nRoutes..."
+    (liftIO . print) =<< getRoute' "blog_int" [("pk", MkChunk (3 :: Int))]
+    
+    liftIO $ putStrLn "\n\nUsers auth..."
+    (liftIO . print) =<< getCurrentUser
+    (liftIO . print) =<< register "Joe" "123"
+    (liftIO . print) =<< login "Joe" "123"
+    (liftIO . print) =<< getCurrentUser
+```
 
 #### Plugins
 There are 2 proof-of-concept plugins, Auth and Sessions. Both are implemented to be abstract interfaces for different backends. Included is a Memory backend that destroys values on server shutdown. Other backends to allow data persistence can be easily added. 

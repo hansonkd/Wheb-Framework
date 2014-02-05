@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Web.Crunchy.InitM where
+module Web.Wheb.InitM where
     
 import           Control.Monad.IO.Class
 import           Control.Monad.Writer
@@ -10,30 +10,30 @@ import           Data.Typeable
 import           Network.Wai
 import           Network.HTTP.Types.Method
 
-import           Web.Crunchy.Internal
-import           Web.Crunchy.Routes
-import           Web.Crunchy.Types
-import           Web.Crunchy.Utils
+import           Web.Wheb.Internal
+import           Web.Wheb.Routes
+import           Web.Wheb.Types
+import           Web.Wheb.Utils
 
-rGET :: (Maybe T.Text) -> UrlPat -> CrunchyHandler g s m -> Route g s m
+rGET :: (Maybe T.Text) -> UrlPat -> WhebHandlerT g s m -> Route g s m
 rGET n p = Route n (==GET) (compilePat p)
 
-rPOST :: (Maybe T.Text) -> UrlPat -> CrunchyHandler g s m -> Route g s m
+rPOST :: (Maybe T.Text) -> UrlPat -> WhebHandlerT g s m -> Route g s m
 rPOST n p = Route n (==POST) (compilePat p)
 
-addGET :: T.Text -> UrlPat -> CrunchyHandler g s m -> InitM g s m ()
+addGET :: T.Text -> UrlPat -> WhebHandlerT g s m -> InitM g s m ()
 addGET n p h = addRoute $ rGET (Just n) p h
 
-addPOST :: T.Text -> UrlPat -> CrunchyHandler g s m -> InitM g s m ()
+addPOST :: T.Text -> UrlPat -> WhebHandlerT g s m -> InitM g s m ()
 addPOST n p h = addRoute $ rPOST (Just n) p h
 
 addWAIMiddleware :: Middleware -> InitM g s m ()
 addWAIMiddleware m = InitM $ tell $ mempty { initWaiMw = m }
 
-addCrunchyMiddleware :: CrunchyMiddleware g s m -> InitM g s m ()
-addCrunchyMiddleware m = InitM $ tell $ mempty { initCrunchyMw = [m] }
+addWhebMiddleware :: WhebMiddleware g s m -> InitM g s m ()
+addWhebMiddleware m = InitM $ tell $ mempty { initWhebMw = [m] }
 
-catchAllRoutes :: CrunchyHandler g s m -> InitM g s m ()
+catchAllRoutes :: WhebHandlerT g s m -> InitM g s m ()
 catchAllRoutes h = addRoute $ Route Nothing (const True) parser h
         where parser = UrlParser (const (Just [])) (const (Right $ T.pack "/*"))
 
@@ -54,13 +54,13 @@ addSettings :: CSettings -> InitM g s m ()
 addSettings settings = InitM $ tell $ mempty { initSettings = settings }
 
 
-generateOptions :: MonadIO m => InitM g s m g -> IO (CrunchyOptions g s m)
+generateOptions :: MonadIO m => InitM g s m g -> IO (WhebOptions g s m)
 generateOptions m = do 
   (g, InitOptions {..}) <- runWriterT (runInitM m)
-  return $ CrunchyOptions { appRoutes = initRoutes
+  return $ WhebOptions { appRoutes = initRoutes
                          , runTimeSettings = initSettings
                          , port = 8080
                          , startingCtx = g
                          , waiStack = initWaiMw
-                         , crunchyMiddlewares = initCrunchyMw
+                         , whebMiddlewares = initWhebMw
                          , defaultErrorHandler = defaultErr }

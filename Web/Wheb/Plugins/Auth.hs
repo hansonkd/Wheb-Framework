@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Web.Crunchy.Plugins.Auth 
+module Web.Wheb.Plugins.Auth 
   ( AuthUser (..)
   , AuthContainer (..)
   , AuthApp (..)
@@ -35,9 +35,9 @@ import Data.Text.Lazy as T
 import Data.Text.Lazy.Encoding as T
 import Data.Text.Encoding as ES
 
-import Web.Crunchy
-import Web.Crunchy.Types
-import Web.Crunchy.Plugins.Session
+import Web.Wheb
+import Web.Wheb.Types
+import Web.Wheb.Plugins.Session
 
 
 type UserKey = Text
@@ -60,35 +60,35 @@ class AuthState a where
   modifyAuthUser :: (PossibleUser -> PossibleUser) -> a -> a
 
 class AuthBackend c where
-  backendLogin    :: (AuthApp a, MonadIO m) => SessionApp a => UserKey -> Password -> c -> CrunchyT a b m (Either AuthError AuthUser)
-  backendRegister :: (AuthApp a, MonadIO m) => UserKey -> Password -> c -> CrunchyT a b m (Either AuthError AuthUser)
-  backendGetUser  :: (AuthApp a, MonadIO m) => UserKey -> c -> CrunchyT a b m (Maybe AuthUser)
-  backendLogout   :: (AuthApp a, MonadIO m) => c -> CrunchyT a b m ()
+  backendLogin    :: (AuthApp a, MonadIO m) => SessionApp a => UserKey -> Password -> c -> WhebT a b m (Either AuthError AuthUser)
+  backendRegister :: (AuthApp a, MonadIO m) => UserKey -> Password -> c -> WhebT a b m (Either AuthError AuthUser)
+  backendGetUser  :: (AuthApp a, MonadIO m) => UserKey -> c -> WhebT a b m (Maybe AuthUser)
+  backendLogout   :: (AuthApp a, MonadIO m) => c -> WhebT a b m ()
   backendLogout _ =  getUserSessionKey >>= deleteSessionValue
 
 runWithContainer :: (AuthApp a, MonadIO m) =>
-                    (forall r. AuthBackend r => r -> CrunchyT a s m b) -> 
-                    CrunchyT a s m b
+                    (forall r. AuthBackend r => r -> WhebT a s m b) -> 
+                    WhebT a s m b
 runWithContainer f = do
   AuthContainer authStore <- getWithApp getAuthContainer
   f authStore
 
-authSetUser :: (AuthApp a, AuthState b, MonadIO m) => PossibleUser -> CrunchyT a b m ()
+authSetUser :: (AuthApp a, AuthState b, MonadIO m) => PossibleUser -> WhebT a b m ()
 authSetUser cur = modifyReqState' (modifyAuthUser (const cur))
 
-authMiddleware :: (AuthApp a, AuthState b, MonadIO m) => CrunchyMiddleware a b m
+authMiddleware :: (AuthApp a, AuthState b, MonadIO m) => WhebMiddleware a b m
 authMiddleware = do
     cur <- queryCurrentUser
     authSetUser cur
     return Nothing
 
-getUserSessionKey :: (AuthApp a, MonadIO m) => CrunchyT a b m Text
+getUserSessionKey :: (AuthApp a, MonadIO m) => WhebT a b m Text
 getUserSessionKey = return $ T.pack "user-id" -- later read from settings.
 
-register :: (AuthApp a, MonadIO m) => UserKey -> Password -> CrunchyT a b m (Either AuthError AuthUser)
+register :: (AuthApp a, MonadIO m) => UserKey -> Password -> WhebT a b m (Either AuthError AuthUser)
 register un pw = runWithContainer $ backendRegister un pw
 
-login :: (AuthApp a, AuthState b, MonadIO m) => UserKey -> Password -> CrunchyT a b m (Either AuthError AuthUser)
+login :: (AuthApp a, AuthState b, MonadIO m) => UserKey -> Password -> WhebT a b m (Either AuthError AuthUser)
 login un pw = do
   loginResult <- (runWithContainer $ backendLogin un pw)
   case loginResult of
@@ -100,21 +100,21 @@ login un pw = do
       _ -> return ()
   return loginResult
 
-logout :: (AuthApp a, AuthState b, MonadIO m) => CrunchyT a b m ()
+logout :: (AuthApp a, AuthState b, MonadIO m) => WhebT a b m ()
 logout = (runWithContainer backendLogout) >> (authSetUser Nothing)
 
-getCurrentUser :: (AuthState b, MonadIO m) => CrunchyT a b m (Maybe AuthUser)
+getCurrentUser :: (AuthState b, MonadIO m) => WhebT a b m (Maybe AuthUser)
 getCurrentUser = liftM getAuthUser getReqState
 
-queryCurrentUser :: (AuthApp a, MonadIO m) => CrunchyT a b m (Maybe AuthUser)
+queryCurrentUser :: (AuthApp a, MonadIO m) => WhebT a b m (Maybe AuthUser)
 queryCurrentUser = getUserSessionKey >>= 
                  getSessionValue' (T.pack "") >>=
                  (\uid -> runWithContainer $ backendGetUser uid)
 
-loginRequired :: CrunchyT a b m () -> CrunchyT a b m ()
+loginRequired :: WhebT a b m () -> WhebT a b m ()
 loginRequired action = action
 
-makePwHash :: MonadIO m => Password -> CrunchyT a b m PwHash
+makePwHash :: MonadIO m => Password -> WhebT a b m PwHash
 makePwHash pw = liftM (T.fromStrict . ES.decodeUtf8) $ 
                         liftIO $ makePassword (ES.encodeUtf8 $ T.toStrict pw) 14
 

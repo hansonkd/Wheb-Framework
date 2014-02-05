@@ -1,6 +1,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving, DeriveFunctor, MultiParamTypeClasses #-}
-module Web.Crunchy.Types where
+
+module Web.Wheb.Types where
 
 import           Blaze.ByteString.Builder (Builder, fromLazyByteString)
 import           Control.Applicative
@@ -28,19 +29,19 @@ import           Network.HTTP.Types.Header
 
 import           Data.ByteString (ByteString)
 
-class CrunchyContent a where
+class WhebContent a where
   toResponse :: Status -> ResponseHeaders -> a -> Response
 
-data HandlerResponse = forall a . CrunchyContent a => HandlerResponse Status a
-type EResponse = Either CrunchyError Response
+data HandlerResponse = forall a . WhebContent a => HandlerResponse Status a
+type EResponse = Either WhebError Response
 data SettingsValue = forall a. (Typeable a) => MkVal a
 type CSettings = M.Map T.Text SettingsValue
-data CrunchyError = Error500 String 
+data WhebError = Error500 String 
                   | Error404 
                   | URLError T.Text UrlBuildError
   deriving (Show)
 
-instance Error CrunchyError where 
+instance Error WhebError where 
     strMsg = Error500
 
 data HandlerData g s m = 
@@ -48,7 +49,7 @@ data HandlerData g s m =
               , request        :: Request
               , postData       :: ([Param], [File LBS.ByteString])
               , routeParams    :: RouteParamList
-              , globalSettings :: CrunchyOptions g s m }
+              , globalSettings :: WhebOptions g s m }
 
 data InternalState s =
   InternalState { reqState     :: s
@@ -61,16 +62,16 @@ data InitOptions g s m =
   InitOptions { initRoutes      :: [ Route g s m ]
               , initSettings    :: CSettings
               , initWaiMw       :: Middleware
-              , initCrunchyMw   :: [ CrunchyMiddleware g s m ] }
+              , initWhebMw   :: [ WhebMiddleware g s m ] }
 
-data CrunchyOptions g s m = MonadIO m => 
-  CrunchyOptions { appRoutes           :: [ Route g s m ]
-                , runTimeSettings     :: CSettings
-                , port                :: Port
-                , startingCtx         :: g
-                , waiStack            :: Middleware
-                , crunchyMiddlewares  :: [ CrunchyMiddleware g s m ]
-                , defaultErrorHandler :: CrunchyError -> CrunchyHandler g s m }
+data WhebOptions g s m = MonadIO m => 
+  WhebOptions { appRoutes             :: [ Route g s m ]
+              , runTimeSettings     :: CSettings
+              , port                :: Port
+              , startingCtx         :: g
+              , waiStack            :: Middleware
+              , whebMiddlewares     :: [ WhebMiddleware g s m ]
+              , defaultErrorHandler :: WhebError -> WhebHandlerT g s m }
 
 instance Monoid (InitOptions g s m) where
   mappend (InitOptions a1 b1 c1 d1) (InitOptions a2 b2 c2 d2) = 
@@ -80,26 +81,27 @@ instance Monoid (InitOptions g s m) where
 newtype InitM g s m a = InitM { runInitM :: WriterT (InitOptions g s m) IO a}
   deriving (Functor, Applicative, Monad, MonadIO)
 
--- | CrunchyT g s m
+-- | WhebT g s m
 --   g -> The global confirgured context (Read-only data shared between threads)
 --   s -> State initailized at the start of each request using Default
 --   m -> Monad we are transforming
-newtype CrunchyT g s m a = CrunchyT 
-  { runCrunchyT :: ErrorT CrunchyError 
+newtype WhebT g s m a = WhebT 
+  { runWhebT :: ErrorT WhebError 
                   (ReaderT (HandlerData g s m) (StateT (InternalState s) m)) a 
   } deriving ( Functor, Applicative, Monad, MonadIO )
 
-instance MonadTrans (CrunchyT g s) where
-  lift = CrunchyT . lift . lift . lift
+instance MonadTrans (WhebT g s) where
+  lift = WhebT . lift . lift . lift
 
-instance (Monad m) => MonadError CrunchyError (CrunchyT g s m) where
-    throwError = CrunchyT . throwError
-    catchError (CrunchyT m) f = CrunchyT  (catchError m (runCrunchyT . f))
+instance (Monad m) => MonadError WhebError (WhebT g s m) where
+    throwError = WhebT . throwError
+    catchError (WhebT m) f = WhebT  (catchError m (runWhebT . f))
 
-type MinCrunchy a = CrunchyT () () IO a
-type MinOpts = CrunchyOptions () () IO
-type CrunchyHandler g s m = CrunchyT g s m HandlerResponse
-type CrunchyMiddleware g s m = CrunchyT g s m (Maybe HandlerResponse)
+type MinWheb a = WhebT () () IO a
+type MinOpts = WhebOptions () () IO
+type WhebHandler g s      = WhebT g s IO HandlerResponse
+type WhebHandlerT g s m   = WhebT g s m HandlerResponse
+type WhebMiddleware g s m = WhebT g s m (Maybe HandlerResponse)
 ----------------- Routes -----------------
 
 type  RouteParamList = [(T.Text, ParsedChunk)]
@@ -119,7 +121,7 @@ data Route g s m = Route
   { routeName    :: (Maybe T.Text)
   , routeMethod  :: MethodMatch
   , routeParser  :: UrlParser
-  , routeHandler :: (CrunchyHandler g s m) }
+  , routeHandler :: (WhebHandlerT g s m) }
 
 data ChunkType = IntChunk | TextChunk
 

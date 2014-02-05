@@ -10,13 +10,13 @@ import           Data.Monoid
 import           Data.Default
 import           Network.Wai.Middleware.RequestLogger
 
-import           Web.Crunchy
-import           Web.Crunchy.Utils (showResponseBody)
+import           Web.Wheb
+import           Web.Wheb.Utils (showResponseBody)
 
-import           Web.Crunchy.Plugins.Auth
-import           Web.Crunchy.Plugins.Session
+import           Web.Wheb.Plugins.Auth
+import           Web.Wheb.Plugins.Session
 
-import           Web.Crunchy.Plugins.Debug.MemoryBackend
+import           Web.Wheb.Plugins.Debug.MemoryBackend
 
 data GlobalApp = GlobalApp { sessContainer :: SessionContainer
                            , authContainer :: AuthContainer }
@@ -38,7 +38,7 @@ instance AuthState RequestState where
 instance Default RequestState where
     def = RequestState Nothing
 
-homePage :: CrunchyHandler GlobalApp RequestState IO
+homePage :: WhebHandler GlobalApp RequestState
 homePage = do
   -- | Keep track of sessions...
   v <- getSessionValue "has-visted"
@@ -51,10 +51,10 @@ homePage = do
         url  <- getRoute "faq" []
         html $ "<h1>Hello Stranger!</h1><a href=\"" <> url <> "\">FAQ</a>"
 
-handleSimple :: T.Text -> CrunchyHandler GlobalApp RequestState IO
+handleSimple :: T.Text -> WhebHandler GlobalApp RequestState
 handleSimple t = html $ "<h1>" <> t <> "</h1>"
 
-handlePOST :: CrunchyHandler GlobalApp RequestState IO
+handlePOST :: WhebHandler GlobalApp RequestState
 handlePOST = do
     params <- getPOSTParams
     let keys   = (fmap fst params)
@@ -65,33 +65,31 @@ handlePOST = do
     html $ "<h1>Session Values before SET...</h1>" <>  (mconcat $ curValsText)
     where zipFunc k v = "| Key: " <> k <> " Value: " <> (T.pack $ show v)
 
-handleCurrentUser :: CrunchyHandler GlobalApp RequestState IO
+handleCurrentUser :: WhebHandler GlobalApp RequestState
 handleCurrentUser = do
     curUser <- getCurrentUser
     html $ "<h1>Current User...</h1>" <> (T.pack $ show curUser)
 
-handleRegister :: CrunchyHandler GlobalApp RequestState IO
+handleRegister :: WhebHandler GlobalApp RequestState
 handleRegister = do
     params <- getPOSTParams
     liftIO $ print params
     userName <- liftM (fromMaybe "") $ getPostParam "username"
     userPass <- liftM (fromMaybe "") $ getPostParam "password"
-    params <- getPOSTParams
-    liftIO $ print params
-    result <- register userName userPass
+    result   <- register userName userPass
     html $ "<h1>Register result...</h1>" <> (T.pack $ show result)
 
-handleLogin :: CrunchyHandler GlobalApp RequestState IO
+handleLogin :: WhebHandler GlobalApp RequestState
 handleLogin = do
     userName <- liftM (fromMaybe "") $ getPostParam "username"
     userPass <- liftM (fromMaybe "") $ getPostParam "password"
-    result  <- login userName userPass
+    result   <- login userName userPass
     html $ "<h1>Login result...</h1>" <> (T.pack $ show result)
     
-interceptMw :: CrunchyMiddleware GlobalApp RequestState IO
+interceptMw :: WhebMiddleware GlobalApp RequestState IO
 interceptMw = liftM Just $ html "<h1>Intercept 1</h1>"
 
-interceptMw2 :: CrunchyMiddleware GlobalApp RequestState IO
+interceptMw2 :: WhebMiddleware GlobalApp RequestState IO
 interceptMw2 = liftM Just $ html "<h1>Intercept 2</h1>"
 
 main :: IO ()
@@ -101,7 +99,7 @@ main = do
       addWAIMiddleware logStdoutDev
       
       -- | Add Auth middlware for current user.
-      addCrunchyMiddleware authMiddleware
+      addWhebMiddleware authMiddleware
       
       -- | Add your application routes...
       addGET "root" rootPat homePage
@@ -147,4 +145,4 @@ main = do
     (liftIO . print) =<< getCurrentUser
       
   -- | Or run a high speed warp server.
-  runCrunchyServer opts
+  runWhebServer opts

@@ -1,4 +1,4 @@
-module Web.Crunchy.Routes where
+module Web.Wheb.Routes where
   
 import qualified Data.Text.Lazy as T
 import           Data.Text.Lazy.Read
@@ -8,7 +8,7 @@ import           Network.HTTP.Types.Method
 import           Data.Maybe (fromJust)
 import           Data.Monoid ((<>))
 
-import           Web.Crunchy.Types
+import           Web.Wheb.Types
 
 getParam :: Typeable a => T.Text -> RouteParamList -> Maybe a
 getParam k l = (lookup k l) >>= unwrap
@@ -24,7 +24,7 @@ generateUrl (UrlParser _ f) = f
 findUrlMatch :: StdMethod ->
                 [T.Text] ->
                 [Route g s m] ->
-                Maybe (CrunchyHandler g s m, RouteParamList)
+                Maybe (WhebHandlerT g s m, RouteParamList)
 findUrlMatch _ _ [] = Nothing
 findUrlMatch rmtd path ((Route _ methodMatch (UrlParser f _) h):rs) 
       | not (methodMatch rmtd) =  findUrlMatch rmtd path rs

@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Web.Crunchy.Utils where
+module Web.Wheb.Utils where
 
 import           Blaze.ByteString.Builder (Builder
                                           ,fromLazyByteString
@@ -14,7 +14,7 @@ import qualified Data.Text.Encoding as TS
 import           Network.HTTP.Types.Status
 import           Network.Wai
 
-import           Web.Crunchy.Types
+import           Web.Wheb.Types
 
 lazyTextToSBS = TS.encodeUtf8 . T.toStrict
 sbsToLazyText = T.fromStrict . TS.decodeUtf8
@@ -28,14 +28,14 @@ showResponseBody (HandlerResponse s r) =
           (_, _, body') = responseToSource $ toResponse s [] r
 
 ----------------------- Instances ------------------------
-instance CrunchyContent Builder where
+instance WhebContent Builder where
   toResponse = responseBuilder
 
-instance CrunchyContent T.Text where
+instance WhebContent T.Text where
   toResponse s hds = responseBuilder s hds . fromLazyByteString . T.encodeUtf8
 
 ----------------------- Some defaults -----------------------
-defaultErr :: Monad m => CrunchyError -> CrunchyHandler g s m
+defaultErr :: Monad m => WhebError -> WhebHandlerT g s m
 defaultErr err = return $ HandlerResponse status500 $ 
             ("<h1>Error: " <> (T.pack $ show err) <> ".</h1>")
 

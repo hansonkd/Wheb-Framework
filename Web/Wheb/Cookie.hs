@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Web.Crunchy.Cookie
+module Web.Wheb.Cookie
   ( setCookie
   , setCookie'
   , getCookie
@@ -20,31 +20,31 @@ import qualified Blaze.ByteString.Builder as B
 
 import Web.Cookie
 
-import Web.Crunchy
-import Web.Crunchy.Types
+import Web.Wheb
+import Web.Wheb.Types
 
-getDefaultCookie :: Monad m => CrunchyT g s m SetCookie
+getDefaultCookie :: Monad m => WhebT g s m SetCookie
 getDefaultCookie = return def -- Populate with settings...
 
-setCookie :: Monad m => Text -> Text -> CrunchyT g s m ()
+setCookie :: Monad m => Text -> Text -> WhebT g s m ()
 setCookie k v = getDefaultCookie >>= (setCookie' k v)
 
-setCookie' :: Monad m => Text -> Text -> SetCookie -> CrunchyT g s m ()
+setCookie' :: Monad m => Text -> Text -> SetCookie -> WhebT g s m ()
 setCookie' k v sc = setRawHeader ("Set-Cookie", cookieText)
   where cookie = sc { setCookieName = lazyTextToSBS k
                     , setCookieValue = lazyTextToSBS v
                     }
         cookieText = B.toByteString $ renderSetCookie cookie
         
-getCookies :: Monad m => CrunchyT g s m CookiesText
+getCookies :: Monad m => WhebT g s m CookiesText
 getCookies = (getHeader "Cookie") >>= (return . parseFunc . (fromMaybe T.empty))
   where parseFunc = parseCookiesText . lazyTextToSBS
 
-getCookie :: Monad m => Text -> CrunchyT g s m (Maybe Text)
+getCookie :: Monad m => Text -> WhebT g s m (Maybe Text)
 getCookie k = getCookies >>= 
     (return . (fmap T.fromStrict) . (lookup (T.toStrict k)))
 
-removeCookie :: Monad m => Text -> CrunchyT g s m ()
+removeCookie :: Monad m => Text -> WhebT g s m ()
 removeCookie k = do
   defCookie <- getDefaultCookie
   let utcLongAgo = UTCTime (ModifiedJulianDay 0) (secondsToDiffTime 0)
