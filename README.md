@@ -8,7 +8,7 @@ Objective
 
 The primary goal of the Wheb framework is to extend the functionality of the base WAI library as well as provide an easy entry point into Haskell web servers. Other servers such as Snap and Yesod make use of a number of extensions and Template Haskell. While TH is powerful in allowing you to build compile time type safe urls, it is another hurdle for someone starting out in Haskell to learn before they can get started. While Yesod and others have non-TH versions of their libraries, it just adds fragmentation within the documenation and tutorials about how to effectively use it.
 
-So, I built the Wheb framework with the explicit goal that Template Haskell not be included in any part of the core server.
+So, I built the Wheb framework with the explicit goal that Template Haskell not be included in any part of the core server. I was inspired by [Scotty](http://hackage.haskell.org/package/scotty) which provided an easy entry point into Haskell servers without the baggage.
 
 Other libraries feature transformers to roll your own Reader and State based applicaiton Monads, but it would be nice if they were built in. Practically every server will have a global read-only context that shares resources between threads and a request state that can change during request processing. Having these resources built in allows for plugins that can always expect those resources to be there.
 
