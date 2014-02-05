@@ -34,6 +34,8 @@ instance WhebContent Builder where
 instance WhebContent T.Text where
   toResponse s hds = responseBuilder s hds . fromLazyByteString . T.encodeUtf8
 
+instance WhebContent WhebFile where
+  toResponse s hds (WhebFile fp) = responseFile s hds fp Nothing
 ----------------------- Some defaults -----------------------
 defaultErr :: Monad m => WhebError -> WhebHandlerT g s m
 defaultErr err = return $ HandlerResponse status500 $ 

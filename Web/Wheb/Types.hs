@@ -33,6 +33,7 @@ class WhebContent a where
   toResponse :: Status -> ResponseHeaders -> a -> Response
 
 data HandlerResponse = forall a . WhebContent a => HandlerResponse Status a
+data WhebFile = WhebFile FilePath
 type EResponse = Either WhebError Response
 data SettingsValue = forall a. (Typeable a) => MkVal a
 type CSettings = M.Map T.Text SettingsValue
