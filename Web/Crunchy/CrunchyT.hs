@@ -2,6 +2,7 @@
 
 module Web.Crunchy.CrunchyT where
 
+import           Control.Monad.Error
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.State
@@ -66,13 +67,21 @@ getRouteParams = CrunchyT $ liftM routeParams ask
 getRouteParam :: (Typeable a, Monad m) => T.Text -> CrunchyT g s m (Maybe a)
 getRouteParam t = liftM (getParam t) getRouteParams
 
-getRoute :: Monad m => T.Text -> 
-                 RouteParamList -> 
-                 CrunchyT g s m (Either UrlBuildError T.Text)
-getRoute n l = CrunchyT $ liftM (buildRoute . (find findRoute) . appRoutes . globalSettings) ask
+getRoute' :: Monad m => T.Text -> 
+             RouteParamList -> 
+             CrunchyT g s m (Either UrlBuildError T.Text)
+getRoute' n l = CrunchyT $ liftM f ask
     where findRoute (Route {..}) = fromMaybe False (fmap (==n) routeName)
           buildRoute (Just (Route {..})) = generateUrl routeParser l
           buildRoute (Nothing)           = Left UrlNameNotFound
+          f = (buildRoute . (find findRoute) . appRoutes . globalSettings)
+
+getRoute :: Monad m => T.Text -> RouteParamList ->  CrunchyT g s m T.Text
+getRoute t l = do
+        res <- getRoute' t l
+        case res of
+            Right t  -> return t
+            Left err -> throwError $ URLError t err
 
 getRequest :: Monad m => CrunchyT g s m Request
 getRequest = CrunchyT $ liftM request ask
@@ -110,20 +119,26 @@ html :: Monad m => T.Text -> CrunchyHandler g s m
 html c = do
     setHeader (T.pack "Content-Type") (T.pack "text/html") 
     return $ HandlerResponse status200 c
+    
+text :: Monad m => T.Text -> CrunchyHandler g s m
+text c = do
+    setHeader (T.pack "Content-Type") (T.pack "text/plain") 
+    return $ HandlerResponse status200 c
 
 ----------------------- Running the application -----------------------
-runDebugT :: (Default s) => CrunchyOptions g s m ->
+debugHandlerT :: (Default s) => CrunchyOptions g s m ->
              (m (Either CrunchyError a) -> IO (Either CrunchyError a)) ->
+             Request ->
              CrunchyT g s m a ->
              IO (Either CrunchyError a)
-runDebugT opts@(CrunchyOptions {..}) runIO h = 
+debugHandlerT opts@(CrunchyOptions {..}) runIO r h = 
     runIO $ runDebugHandler opts h baseData
-    where baseData = HandlerData startingCtx defaultRequest ([], []) [] opts
+    where baseData = HandlerData startingCtx r ([], []) [] opts
 
-runDebugIO :: (Default s) => CrunchyOptions g s IO -> 
+debugHandlerIO :: (Default s) => CrunchyOptions g s IO -> 
               CrunchyT g s IO a ->
               IO (Either CrunchyError a)
-runDebugIO opts h = runDebugT opts id h
+debugHandlerIO opts h = debugHandlerT opts id defaultRequest h
 
 runCrunchyServerT :: (Default s) => 
                   (m EResponse -> IO EResponse) ->

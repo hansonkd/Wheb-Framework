@@ -10,6 +10,7 @@ import           Data.Monoid
 import           Data.Default
 
 import           Web.Crunchy
+import           Web.Crunchy.Utils (showResponseBody)
 
 import           Web.Crunchy.Plugins.Auth
 import           Web.Crunchy.Plugins.Session
@@ -36,12 +37,17 @@ instance Default RequestState where
 
 homePage :: CrunchyHandler GlobalApp RequestState IO
 homePage = do
+    -- | Only give them one chance to register...
     v <- getSessionValue "has-visted"
     setSessionValue "has-visted" "True"
     
     case v of
-      Just _  -> html "<h1>Welcome back!</h1>"
-      Nothing -> html "<h1>Hello Stranger!</h1>"
+      Just _  -> do
+          url  <- getRoute "blog_txt" [("slug", MkChunk ("hey" :: T.Text))]
+          html $ "<h1>Welcome back!</h1><a href=\"" <> url <> "\">Go to blog</a>"
+      Nothing -> do
+          url  <- getRoute "faq" []
+          html $ "<h1>Hello Stranger!</h1><a href=\"" <> url <> "\">FAQ</a>"
 
 handleSimple :: T.Text -> CrunchyHandler GlobalApp RequestState IO
 handleSimple t = html $ "<h1>" <> t <> "</h1>"
@@ -93,15 +99,17 @@ main = do
       
       -- | Add your application routes...
       addGET "root" rootPat homePage
-      addGET "faq" "faq" $ handleSimple "FAQ"
+      addGET "faq" "faq" $  handleSimple "FAQ"
+      addPOST "post_store" ("post" </> "store") handlePOST
       
       -- | Auth Handlers.
-      addGET  "current"  "current" $ handleCurrentUser
+      addGET  "current"  "current"  handleCurrentUser
       addPOST "register" "register" handleRegister
-      addPOST "login"    "login" handleLogin
+      addPOST "login"    "login"    handleLogin
       
       -- | Overloaded URLs
-      addPOST "blog_int" ("blog" </> (grabInt "pk")) handlePOST
+      
+      addGET "blog_int" ("blog" </> (grabInt "pk")) $ handleSimple "Number"
       addGET  "blog_txt" ("blog" </> (grabText "slug")) $ 
             (getRouteParam "slug") >>= (handleSimple . fromJust)
       
@@ -111,15 +119,22 @@ main = do
       
       -- | Return your new global context.
       return (GlobalApp sess auth)
-      
-  runDebugIO opts $ do 
-      url  <- getRoute "blog_int" []
-      url1 <- getRoute "blog_int" [("pk", MkChunk (3 :: Int))]
-      url2 <- getRoute "blog_int" [("pk", MkChunk ("hey" :: T.Text))]
-      url3 <- getRoute "blog_txt" [("slug", MkChunk ("hey" :: T.Text))]
+  
+  -- | Ability to easily run your handlers w/o a server.
+  hResult <- debugHandlerIO opts $ handleSimple "Hello from console!"
+  either print (\r -> (showResponseBody r) >>= print) hResult
+  
+  -- | Or debug some stuff.
+  debugHandlerIO opts $ do 
+      url  <- getRoute' "blog_int" []
+      url1 <- getRoute' "blog_int" [("pk", MkChunk (3 :: Int))]
+      url2 <- getRoute' "blog_int" [("pk", MkChunk ("hey" :: T.Text))]
+      url3 <- getRoute' "blog_txt" [("slug", MkChunk ("hey" :: T.Text))]
     
       liftIO $ print url
       liftIO $ print url1
       liftIO $ print url2
       liftIO $ print url3
+      
+  -- | Or run a high speed warp server.
   runCrunchyServer opts

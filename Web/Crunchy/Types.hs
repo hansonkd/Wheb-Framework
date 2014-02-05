@@ -35,7 +35,9 @@ data HandlerResponse = forall a . CrunchyContent a => HandlerResponse Status a
 type EResponse = Either CrunchyError Response
 data SettingsValue = forall a. (Typeable a) => MkVal a
 type CSettings = M.Map T.Text SettingsValue
-data CrunchyError = Error500 String | Error301 | Error404
+data CrunchyError = Error500 String 
+                  | Error404 
+                  | URLError T.Text UrlBuildError
   deriving (Show)
 
 instance Error CrunchyError where 
@@ -94,6 +96,8 @@ instance (Monad m) => MonadError CrunchyError (CrunchyT g s m) where
     throwError = CrunchyT . throwError
     catchError (CrunchyT m) f = CrunchyT  (catchError m (runCrunchyT . f))
 
+type MinCrunchy a = CrunchyT () () IO a
+type MinOpts = CrunchyOptions () () IO
 type CrunchyHandler g s m = CrunchyT g s m HandlerResponse
 type CrunchyMiddleware g s m = CrunchyT g s m (Maybe HandlerResponse)
 ----------------- Routes -----------------
