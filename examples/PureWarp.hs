@@ -8,9 +8,8 @@ import qualified Data.Text.Lazy.IO as T
  
 main :: IO ()
 main = do
-  
-  htmlContent <- LBS.readFile "examples/resources/index.html"
-  run 8080 $ const $ return $ responseLBS
+  run 8080 $ const $ return $ responseFile
     status200
     [("Content-Type", "application/json")]
-    htmlContent
+    "examples/resources/index.html"
+    Nothing

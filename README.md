@@ -157,7 +157,91 @@ There are 2 proof-of-concept plugins, Auth and Sessions. Both are implemented to
 #### Speed
 When Wheb is deployed, it uses warp. This means you get great performance right away with almost zero configuration.
 
-These benchmarks were taken on a base configuration linode server...
+These benchmarks serving a 25kb index page (in examples/resources) were taken on a base configuration linode server...
+
+Wheb results:
 
 ```
+kyle@localhost:~$ ab -c 500 -n 10000 http://127.0.0.1:8080/
+
+Server Software:        Warp/2.0.2
+Server Hostname:        127.0.0.1
+Server Port:            8080
+
+Document Path:          /
+Document Length:        23348 bytes
+
+Concurrency Level:      500
+Time taken for tests:   1.668 seconds
+Complete requests:      10000
+Failed requests:        0
+Write errors:           0
+Total transferred:      234940000 bytes
+HTML transferred:       233480000 bytes
+Requests per second:    5995.65 [#/sec] (mean)
+Time per request:       83.394 [ms] (mean)
+Time per request:       0.167 [ms] (mean, across all concurrent requests)
+Transfer rate:          137560.34 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0   24  96.6     14    1015
+Processing:    10   43  11.6     42     235
+Waiting:        3   21   9.5     20     224
+Total:         16   66  97.8     58    1065
+
+Percentage of the requests served within a certain time (ms)
+  50%     58
+  66%     62
+  75%     65
+  80%     67
+  90%     73
+  95%     80
+  98%     95
+  99%    103
+ 100%   1065 (longest request)
+
+```
+
+And Nginx serving the same file...
+
+```
+kyle@localhost:~$ ab -c 500 -n 10000 http://127.0.0.1:80/
+
+Server Software:        nginx/1.4.1
+Server Hostname:        127.0.0.1
+Server Port:            80
+
+Document Path:          /
+Document Length:        23348 bytes
+
+Concurrency Level:      500
+Time taken for tests:   1.600 seconds
+Complete requests:      10000
+Failed requests:        0
+Write errors:           0
+Total transferred:      235920000 bytes
+HTML transferred:       233480000 bytes
+Requests per second:    6248.32 [#/sec] (mean)
+Time per request:       80.022 [ms] (mean)
+Time per request:       0.160 [ms] (mean, across all concurrent requests)
+Transfer rate:          143955.36 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        4   23   4.7     22      41
+Processing:    17   56   9.9     56      99
+Waiting:        2   22   7.0     21      54
+Total:         35   78   9.4     78     131
+
+Percentage of the requests served within a certain time (ms)
+  50%     78
+  66%     81
+  75%     83
+  80%     84
+  90%     90
+  95%     93
+  98%     96
+  99%    100
+ 100%    131 (longest request)
 ```

@@ -115,6 +115,7 @@ setRawHeader (hn, hc) = WhebT $ modify insertHeader
 setHeader :: Monad m => T.Text -> T.Text -> WhebT g s m ()
 setHeader hn hc = setRawHeader (mk $ lazyTextToSBS hn, lazyTextToSBS hc)
 
+-- | Give filepath and content type to serve a file from disk.
 file :: Monad m => FilePath -> T.Text -> WhebHandlerT g s m
 file fp ct = do
     setHeader (T.pack "Content-Type") (ct) 
