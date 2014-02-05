@@ -1,11 +1,10 @@
-import           Control.Monad
 import           Web.Wheb
 import qualified Data.Text.Lazy as T
-import qualified Data.Text.IO as TS
+import qualified Data.Text.Lazy.IO as T
 
 main :: IO ()
 main = do
-  htmlContent <- TS.readFile "examples/resources/index.html"
+  htmlContent <- T.readFile "examples/resources/index.html"
   opts <- generateOptions $ do
-    addGET (T.pack ".") rootPat $ html $ T.fromStrict htmlContent
+    addGET (T.pack ".") rootPat $ html htmlContent
   runWhebServer (opts :: MinOpts)
