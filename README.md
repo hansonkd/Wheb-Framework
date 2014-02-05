@@ -19,7 +19,7 @@ Currently Wheb is still very early in development. I have included some features
 
 
 #### Easy Setup.
-Here is a Crunchy server:
+Here is a Wheb server:
 
 ```haskell
 import           Web.Wheb
@@ -65,7 +65,7 @@ main = do
       addWAIMiddleware logStdoutDev
       
       -- | Add Auth middlware for current user.
-      addCrunchyMiddleware authMiddleware
+      addWhebMiddleware authMiddleware
       
       -- | Add your application routes...
       addGET "root" rootPat homePage
@@ -92,12 +92,12 @@ main = do
       -- | Return your new global context.
       return (GlobalApp sess auth)
       
-  runCrunchyServer opts
+  runWhebServer opts
 ```
 
 
 #### URLs
-Crunchy uses named dynamically typed URLs. While this means you won't get compile-time checking of your URLs, it gives you some form of type safety beyond simple text. 
+Wheb uses named dynamically typed URLs. While this means you won't get compile-time checking of your URLs, it gives you some form of type safety beyond simple text. 
 
 ```haskell
 -- | This URL will match /blog/1 but not /blog/foo
@@ -115,7 +115,7 @@ url <- getRoute "blog_txt" [("slug", MkChunk ("hey" :: T.Text))]
 ```
 
 #### Middlewares
-Crunchy supports WAI and its own CrunchyMiddlwares. CrunchyMiddlwares allow you to change the state before it reaches your handler. It also allows you to return a response to intercept requests.
+Wheb supports WAI and its own WhebMiddlwares. WhebMiddlwares allow you to change the state before it reaches your handler. It also allows you to return a response to intercept requests.
 
 The included auth middlware makes use of the ability to change state to set the current user before each Handler.
 
