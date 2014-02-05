@@ -10,8 +10,7 @@ import           Data.Monoid
 import           Data.Default
 
 import           Web.Crunchy
-import           Web.Crunchy.Types
-import           Web.Crunchy.Routes
+
 import           Web.Crunchy.Plugins.Auth
 import           Web.Crunchy.Plugins.Session
 
@@ -39,6 +38,7 @@ homePage :: CrunchyHandler GlobalApp RequestState IO
 homePage = do
     v <- getSessionValue "has-visted"
     setSessionValue "has-visted" "True"
+    
     case v of
       Just _  -> html "<h1>Welcome back!</h1>"
       Nothing -> html "<h1>Hello Stranger!</h1>"
@@ -92,8 +92,8 @@ main = do
       addCrunchyMiddleware authMiddleware
       
       -- | Add your application routes...
-      addGET rootPat homePage
-      addGET "faq" $ handleSimple "FAQ"
+      addGET "root" rootPat homePage
+      addGET "faq" "faq" $ handleSimple "FAQ"
       
       -- | Auth Handlers.
       addGET  "current"  "current" $ handleCurrentUser
@@ -112,4 +112,14 @@ main = do
       -- | Return your new global context.
       return (GlobalApp sess auth)
       
+  runDebugIO opts $ do 
+      url  <- getRoute "blog_int" []
+      url1 <- getRoute "blog_int" [("pk", MkChunk (3 :: Int))]
+      url2 <- getRoute "blog_int" [("pk", MkChunk ("hey" :: T.Text))]
+      url3 <- getRoute "blog_txt" [("slug", MkChunk ("hey" :: T.Text))]
+    
+      liftIO $ print url
+      liftIO $ print url1
+      liftIO $ print url2
+      liftIO $ print url3
   runCrunchyServer opts

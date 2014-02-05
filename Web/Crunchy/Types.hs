@@ -103,7 +103,7 @@ type  MethodMatch = StdMethod -> Bool
 
 data ParsedChunk = forall a. (Typeable a, Show a) => MkChunk a
 
-data UrlBuildError = NoParam | ParamTypeMismatch T.Text
+data UrlBuildError = NoParam | ParamTypeMismatch T.Text | UrlNameNotFound
      deriving (Show) 
 
 -- | A Parser should be able to extract params and regenerate URL from params.
