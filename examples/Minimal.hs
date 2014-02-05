@@ -1,9 +1,7 @@
 import           Web.Crunchy
-import           Data.Text.Lazy as T
+import           Data.Text.Lazy (pack)
 
 main :: IO ()
 main = do
-    opts <- generateOptions $ do
-        addGET (T.pack "all") rootPat $
-            (text (T.pack "Hey"))
-    runCrunchyServer (opts :: MinOpts)
+  opts <- generateOptions $ addGET (pack ".") rootPat $ (text (pack "Hi!"))
+  runCrunchyServer (opts :: MinOpts)
