@@ -1,5 +1,5 @@
 name:                Wheb
-version:             0.0.1.0
+version:             0.0.1.1
 synopsis:            The Batteries-Included Haskell WAI Framework
 license:             BSD3
 license-file:        LICENSE
