@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Web.Wheb.Utils where
 
 import           Blaze.ByteString.Builder (Builder
@@ -19,6 +20,7 @@ import           Web.Wheb.Types
 lazyTextToSBS = TS.encodeUtf8 . T.toStrict
 sbsToLazyText = T.fromStrict . TS.decodeUtf8
 
+-- | See a 'HandlerResponse's as 'Text'
 showResponseBody :: HandlerResponse -> IO T.Text
 showResponseBody (HandlerResponse s r) = 
     liftM (T.decodeUtf8 . toLazyByteString) builderBody
@@ -35,7 +37,8 @@ instance WhebContent T.Text where
   toResponse s hds = responseBuilder s hds . fromLazyByteString . T.encodeUtf8
 
 instance WhebContent WhebFile where
-  toResponse s hds (WhebFile fp) = responseFile s hds fp Nothing
+  toResponse s hds (WhebFile fp) = responseFile s hds (show fp) Nothing
+
 ----------------------- Some defaults -----------------------
 defaultErr :: Monad m => WhebError -> WhebHandlerT g s m
 defaultErr err = return $ HandlerResponse status500 $ 

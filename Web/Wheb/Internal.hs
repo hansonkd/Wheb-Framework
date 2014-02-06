@@ -19,20 +19,9 @@ import           Web.Wheb.Routes
 import           Web.Wheb.Types
 import           Web.Wheb.Utils
 
-runDebugHandler :: (Default s, Monad m) =>
-                    WhebOptions g s m ->
-                    WhebT g s m a  ->
-                    HandlerData g s m ->
-                    m (Either WhebError a)
-runDebugHandler opts@(WhebOptions {..}) handler hd = do
-  flip evalStateT def $ do
-            flip runReaderT hd $
-              runErrorT $
-              runWhebT handler
-  where convertResponse hds (HandlerResponse status resp) =
-                          toResponse status (M.toList hds) resp
-                          
-                          
+-- * Converting to WAI application
+                      
+-- | Convert 'WhebOptions' to 'Application'                        
 optsToApplication :: (Default s) => WhebOptions g s m ->
                      (m EResponse -> IO EResponse) ->
                      Application
@@ -49,14 +38,48 @@ optsToApplication opts@(WhebOptions {..}) runIO r = do
                             runWhebHandler opts h st hData 
                         Nothing          -> return $ Left Error404
   either handleError return res
-  where baseData = HandlerData startingCtx r ([], []) [] opts
+  where baseData   = HandlerData startingCtx r ([], []) [] opts
         pathChunks = fmap T.fromStrict $ pathInfo r
-        stdMthd = either (\_-> GET) id $ parseMethod $ requestMethod r
+        stdMthd    = either (\_-> GET) id $ parseMethod $ requestMethod r
         handleError err = do
           errRes <- runIO $ 
-                      runWhebHandler opts (defaultErrorHandler err) def baseData
+                    runWhebHandler opts (defaultErrorHandler err) def baseData
           either (return . (const uhOh)) return errRes
-          
+
+-- * Running Handlers
+
+-- | Run all inner wheb monads to the top level.
+runWhebHandler :: (Default s, Monad m) =>
+                    WhebOptions g s m ->
+                    WhebHandlerT g s m ->
+                    InternalState s ->
+                    HandlerData g s m ->
+                    m EResponse
+runWhebHandler opts@(WhebOptions {..}) handler st hd = do
+  (resp, InternalState {..}) <- flip runStateT st $ do
+            flip runReaderT hd $
+              runErrorT $
+              runWhebT handler
+  return $ fmap (convertResponse respHeaders) resp 
+  where convertResponse hds (HandlerResponse status resp) =
+                          toResponse status (M.toList hds) resp
+
+-- | Same as above but returns arbitrary type for debugging.
+runDebugHandler :: (Default s, Monad m) =>
+                    WhebOptions g s m ->
+                    WhebT g s m a  ->
+                    HandlerData g s m ->
+                    m (Either WhebError a)
+runDebugHandler opts@(WhebOptions {..}) handler hd = do
+  flip evalStateT def $ do
+            flip runReaderT hd $
+              runErrorT $
+              runWhebT handler
+  where convertResponse hds (HandlerResponse status resp) =
+                          toResponse status (M.toList hds) resp
+-- * Running Middlewares
+ 
+-- | Runs middlewares in order, stopping if one returns a response
 runMiddlewares :: (Default s, Monad m) =>
                   WhebOptions g s m ->
                   [WhebMiddleware g s m] ->
@@ -85,19 +108,3 @@ runWhebMiddleware opts@(WhebOptions {..}) st hd mW = do
   where convertResponse hds (Right (Just (HandlerResponse status resp))) =
                               Just (toResponse status (M.toList hds) resp)
         convertResponse _ _ = Nothing
-                          
-runWhebHandler :: (Default s, Monad m) =>
-                    WhebOptions g s m ->
-                    WhebHandlerT g s m ->
-                    InternalState s ->
-                    HandlerData g s m ->
-                    m EResponse
-runWhebHandler opts@(WhebOptions {..}) handler st hd = do
-  (resp, InternalState {..}) <- flip runStateT st $ do
-            flip runReaderT hd $
-              runErrorT $
-              runWhebT handler
-  return $ fmap (convertResponse respHeaders) resp 
-  where convertResponse hds (HandlerResponse status resp) =
-                          toResponse status (M.toList hds) resp
-                          

@@ -20,8 +20,11 @@ import qualified Blaze.ByteString.Builder as B
 
 import Web.Cookie
 
-import Web.Wheb
+
 import Web.Wheb.Types
+import Web.Wheb.Internal
+import Web.Wheb.WhebT
+import Web.Wheb.Utils
 
 getDefaultCookie :: Monad m => WhebT g s m SetCookie
 getDefaultCookie = return def -- Populate with settings...

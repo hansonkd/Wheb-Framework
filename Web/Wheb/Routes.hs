@@ -1,4 +1,25 @@
-module Web.Wheb.Routes where
+module Web.Wheb.Routes
+  (
+  -- * Convenience constructors
+    rGET
+  , rPOST
+  -- * URL Patterns
+  , compilePat
+  , rootPat
+  
+  -- ** URL building
+  , (</>)
+  , grabInt
+  , grabText
+  , pT
+  , pS
+  
+  -- * Working with URLs
+  , getParam
+  , matchUrl
+  , generateUrl
+  , findUrlMatch
+  ) where
   
 import qualified Data.Text.Lazy as T
 import           Data.Text.Lazy.Read
@@ -10,17 +31,73 @@ import           Data.Monoid ((<>))
 
 import           Web.Wheb.Types
 
+-- * Convenience constructors
+
+rGET :: (Maybe T.Text) -> UrlPat -> WhebHandlerT g s m -> Route g s m
+rGET n p = Route n (==GET) (compilePat p)
+
+rPOST :: (Maybe T.Text) -> UrlPat -> WhebHandlerT g s m -> Route g s m
+rPOST n p = Route n (==POST) (compilePat p)
+
+-- * URL Patterns
+
+-- | Convert a 'UrlPat' to a 'UrlParser'
+compilePat :: UrlPat -> UrlParser
+compilePat (Composed a) = UrlParser (matchPat a) (buildPat a)
+compilePat a = UrlParser (matchPat [a]) (buildPat [a])
+
+-- | Represents root path @/@
+rootPat :: UrlPat
+rootPat = Composed [] 
+
+
+
+-- | Allows for easier building of URL patterns
+--   This should be the primary URL constructor.
+--   
+--  @
+--        (\"blog\" '</>' ('grabInt' \"pk\") '</>' \"edit\" '</>' ('grabText' \"verb\"))
+--  @
+(</>) :: UrlPat -> UrlPat -> UrlPat
+(Composed a) </> (Composed b) = Composed (a ++ b)
+a </> (Composed b) = Composed (a:b)
+(Composed a) </> b = Composed (a ++ [b])
+a </> b = Composed [a, b]
+
+-- | Parses URL parameter and matches on 'Int'
+grabInt :: T.Text -> UrlPat
+grabInt key = FuncChunk key f IntChunk
+  where rInt = decimal :: Reader Int
+        f = ((either (const Nothing) (Just . MkChunk . fst)) . rInt)
+
+-- | Parses URL parameter and matches on 'Text'
+grabText :: T.Text -> UrlPat
+grabText key = FuncChunk key (Just . MkChunk) TextChunk
+
+-- | Constructors to use w/o OverloadedStrings
+pT :: T.Text -> UrlPat
+pT = Chunk
+
+pS :: String -> UrlPat
+pS = pT . T.pack
+
+
+
+-- | Lookup and cast a URL parameter to its expected type if it exists.
 getParam :: Typeable a => T.Text -> RouteParamList -> Maybe a
 getParam k l = (lookup k l) >>= unwrap
   where unwrap :: Typeable a => ParsedChunk -> Maybe a
         unwrap (MkChunk a) = cast a
-                                        
+
+-- | Convert URL chunks (split on /)                                
 matchUrl :: [T.Text] -> UrlParser -> Maybe RouteParamList
 matchUrl url (UrlParser f _) = f url
 
+-- | Runs a 'UrlParser' with 'RouteParamList' to a URL path
 generateUrl :: UrlParser -> RouteParamList -> Either UrlBuildError T.Text
 generateUrl (UrlParser _ f) = f
 
+-- | Sort through a list of routes to find a Handler and 'RouteParamList'
 findUrlMatch :: StdMethod ->
                 [T.Text] ->
                 [Route g s m] ->
@@ -32,35 +109,7 @@ findUrlMatch rmtd path ((Route _ methodMatch (UrlParser f _) h):rs)
                         Just params -> Just (h, params)
                         Nothing -> findUrlMatch rmtd path rs
 
---------- Url Patterns ------------
--- | Constructors to use w/o OverloadedStrings
-pT :: T.Text -> UrlPat
-pT = Chunk
-
-pS :: String -> UrlPat
-pS = pT . T.pack
-
--- | Represents root (/)
-rootPat :: UrlPat
-rootPat = Composed [] 
-
-grabText :: T.Text -> UrlPat
-grabText key = FuncChunk key (Just . MkChunk) TextChunk
-
-grabInt :: T.Text -> UrlPat
-grabInt key = FuncChunk key f IntChunk
-  where rInt = decimal :: Reader Int
-        f = ((either (const Nothing) (Just . MkChunk . fst)) . rInt)
-
--- | Allows for easier building of URL patterns
---   This should be the primary URL constructor.
-(</>) :: UrlPat -> UrlPat -> UrlPat
-(Composed a) </> (Composed b) = Composed (a ++ b)
-a </> (Composed b) = Composed (a:b)
-(Composed a) </> b = Composed (a ++ [b])
-a </> b = Composed [a, b]
-    
--- | Implementation for a UrlParser using pseudo-typed URL composition.
+-- | Implementation for a 'UrlParser' using pseudo-typed URL composition.
 --   Pattern will match path when the pattern is as long as the path, matching
 --   on a trailing slash. If the path is longer or shorter than the pattern, it
 --   should not match.
@@ -94,10 +143,6 @@ buildPat pats params = fmap addSlashes $ build [] pats
                       (Left err)  -> Left err
           slash = (T.pack "/")
           addSlashes list = slash <> (T.intercalate slash list) <> slash
-
-compilePat :: UrlPat -> UrlParser
-compilePat (Composed a) = UrlParser (matchPat a) (buildPat a)
-compilePat a = UrlParser (matchPat [a]) (buildPat [a])
 
 showParam :: ChunkType -> T.Text -> RouteParamList -> Either UrlBuildError T.Text
 showParam chunkType k l = 

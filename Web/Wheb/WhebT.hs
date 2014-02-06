@@ -1,6 +1,50 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Web.Wheb.WhebT where
+module Web.Wheb.WhebT
+  (
+  -- * ReaderT and StateT Functionality
+  -- ** ReaderT
+    getApp
+  , getWithApp
+  -- ** StateT
+  , getReqState
+  , putReqState
+  , modifyReqState
+  , modifyReqState'
+  
+  -- * Responses
+  , setHeader
+  , setRawHeader
+  , html
+  , text
+  , file
+  
+  -- * Settings
+  , getSetting
+  , getSetting'
+  , getSettings
+  
+  -- * Routes
+  , getRouteParams
+  , getRouteParam
+  , getRoute
+  , getRoute'
+  
+  -- * Request reading
+  , getRequest
+  , getRequestHeader
+  , getWithRequest
+  , getQueryParams
+  , getPOSTParam
+  , getPOSTParams
+  , getRawPOST
+  
+  -- * Running Wheb
+  , runWhebServer
+  , runWhebServerT
+  , debugHandler
+  , debugHandlerT
+  )where
 
 import           Control.Monad.Error
 import           Control.Monad.IO.Class
@@ -59,8 +103,7 @@ modifyReqState f = do
 modifyReqState' :: Monad m => (s -> s) -> WhebT g s m ()
 modifyReqState' f = modifyReqState f >> (return ())
 
--- * Settings Map
--- Access arbitrary settings set at initialize.
+-- * Settings
 
 -- | Help prevent monomorphism errors for simple settings.
 getSetting :: Monad m => T.Text -> WhebT g s m (Maybe T.Text)
@@ -117,14 +160,14 @@ getWithRequest = flip liftM getRequest
 getRawPOST :: MonadIO m => WhebT g s m ([Param], [File LBS.ByteString])
 getRawPOST = WhebT $ liftM postData ask
 
--- | Convert params into Text
+-- | Get POST params as 'Text'
 getPOSTParams :: MonadIO m => WhebT g s m [(T.Text, T.Text)]
 getPOSTParams = liftM (fmap f . fst) getRawPOST
   where f (a, b) = (sbsToLazyText a, sbsToLazyText b)
 
--- | Maybe get one param
-getPostParam :: MonadIO m => T.Text -> WhebT g s m (Maybe T.Text)
-getPostParam k = liftM (lookup k) getPOSTParams 
+-- | Maybe get one param if it exists.
+getPOSTParam :: MonadIO m => T.Text -> WhebT g s m (Maybe T.Text)
+getPOSTParam k = liftM (lookup k) getPOSTParams 
 
 -- | Get params from URL (e.g. from '/foo/?q=4')
 getQueryParams :: Monad m => WhebT g s m Query
@@ -149,7 +192,7 @@ setHeader :: Monad m => T.Text -> T.Text -> WhebT g s m ()
 setHeader hn hc = setRawHeader (mk $ lazyTextToSBS hn, lazyTextToSBS hc)
 
 -- | Give filepath and content type to serve a file from disk.
-file :: Monad m => FilePath -> T.Text -> WhebHandlerT g s m
+file :: Monad m => T.Text -> T.Text -> WhebHandlerT g s m
 file fp ct = do
     setHeader (T.pack "Content-Type") (ct) 
     return $ HandlerResponse status200 (WhebFile fp)
@@ -179,10 +222,10 @@ debugHandlerT opts@(WhebOptions {..}) runIO r h =
     where baseData = HandlerData startingCtx r ([], []) [] opts
 
 -- | Convenience wrapper for 'debugHandlerT' function in 'IO'
-debugHandlerIO :: (Default s) => WhebOptions g s IO -> 
+debugHandler :: (Default s) => WhebOptions g s IO -> 
               WhebT g s IO a ->
               IO (Either WhebError a)
-debugHandlerIO opts h = debugHandlerT opts id defaultRequest h
+debugHandler opts h = debugHandlerT opts id defaultRequest h
 
 -- | Run a server with a function to run your inner Transformer to IO and 
 -- generated options

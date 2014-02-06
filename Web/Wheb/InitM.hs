@@ -1,6 +1,26 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Web.Wheb.InitM where
+module Web.Wheb.InitM
+  (
+  -- * Routes
+  -- ** Named routes convenience functions
+    addGET
+  , addPOST
+  -- ** Add raw routes
+  , addRoute
+  , addRoutes
+  -- * Middlewares
+  , addWAIMiddleware
+  , addWhebMiddleware
+  -- * Settings
+  , addSetting
+  , addSetting'
+  , addSettings
+  
+  -- * Running
+  , generateOptions
+  
+  ) where
     
 import           Control.Monad.IO.Class
 import           Control.Monad.Writer
@@ -16,24 +36,11 @@ import           Web.Wheb.Routes
 import           Web.Wheb.Types
 import           Web.Wheb.Utils
 
-
--- * Route building
-
--- ** Convenience constructors
-rGET :: (Maybe T.Text) -> UrlPat -> WhebHandlerT g s m -> Route g s m
-rGET n p = Route n (==GET) (compilePat p)
-
-rPOST :: (Maybe T.Text) -> UrlPat -> WhebHandlerT g s m -> Route g s m
-rPOST n p = Route n (==POST) (compilePat p)
-
--- ** Named routes convenience functions
 addGET :: T.Text -> UrlPat -> WhebHandlerT g s m -> InitM g s m ()
 addGET n p h = addRoute $ rGET (Just n) p h
 
 addPOST :: T.Text -> UrlPat -> WhebHandlerT g s m -> InitM g s m ()
 addPOST n p h = addRoute $ rPOST (Just n) p h
-
--- ** Adding raw routes
 
 addRoute :: Route g s m -> InitM g s m ()
 addRoute r = addRoutes [r]
@@ -41,23 +48,10 @@ addRoute r = addRoutes [r]
 addRoutes :: [Route g s m] -> InitM g s m ()
 addRoutes rs = InitM $ tell $ mempty { initRoutes = rs }
 
--- ** Utility routes
-
 -- | Catch all routes regardless of method or path
 catchAllRoutes :: WhebHandlerT g s m -> InitM g s m ()
 catchAllRoutes h = addRoute $ Route Nothing (const True) parser h
         where parser = UrlParser (const (Just [])) (const (Right $ T.pack "/*"))
-
-
--- * Middlewares
--- .
--- There are two types of middlewares, pure "WAI" middlewares and "Wheb" 
--- specific middlewares. A middlware that returns a response will stop the
--- request from reaching the handler.
--- .
--- Wheb middlwares have the ability to change the request-state before it
--- reaches the handler. the Auth module makes use of this to set the current
--- user. 
 
 -- | Add generic "WAI" middleware
 addWAIMiddleware :: Middleware -> InitM g s m ()
@@ -68,17 +62,18 @@ addWhebMiddleware :: WhebMiddleware g s m -> InitM g s m ()
 addWhebMiddleware m = InitM $ tell $ mempty { initWhebMw = [m] }
 
 
--- | Help prevent monomorphism errors for simple settings.
+-- | Wrapped 'addSetting'' to help prevent monomorphism errors for simple settings.
 addSetting :: T.Text -> T.Text -> InitM g s m ()
 addSetting = addSetting'
 
+-- | Adds a setting value, replacing it if its key already exists.
 addSetting' :: Typeable a => T.Text -> a -> InitM g s m ()
 addSetting' k v = addSettings $ M.fromList [(k, MkVal v)]
 
 addSettings :: CSettings -> InitM g s m ()
 addSettings settings = InitM $ tell $ mempty { initSettings = settings }
 
-
+-- | Generate 'WhebOptions' from 'InitM' in 'IO'
 generateOptions :: MonadIO m => InitM g s m g -> IO (WhebOptions g s m)
 generateOptions m = do 
   (g, InitOptions {..}) <- runWriterT (runInitM m)

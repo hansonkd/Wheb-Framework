@@ -75,15 +75,15 @@ handleRegister :: WhebHandler GlobalApp RequestState
 handleRegister = do
     params <- getPOSTParams
     liftIO $ print params
-    userName <- liftM (fromMaybe "") $ getPostParam "username"
-    userPass <- liftM (fromMaybe "") $ getPostParam "password"
+    userName <- liftM (fromMaybe "") $ getPOSTParam "username"
+    userPass <- liftM (fromMaybe "") $ getPOSTParam "password"
     result   <- register userName userPass
     html $ "<h1>Register result...</h1>" <> (T.pack $ show result)
 
 handleLogin :: WhebHandler GlobalApp RequestState
 handleLogin = do
-    userName <- liftM (fromMaybe "") $ getPostParam "username"
-    userPass <- liftM (fromMaybe "") $ getPostParam "password"
+    userName <- liftM (fromMaybe "") $ getPOSTParam "username"
+    userPass <- liftM (fromMaybe "") $ getPOSTParam "password"
     result   <- login userName userPass
     html $ "<h1>Login result...</h1>" <> (T.pack $ show result)
     
@@ -125,11 +125,11 @@ main = do
       return (GlobalApp sess auth)
   
   -- | Ability to easily run your handlers w/o a server.
-  hResult <- debugHandlerIO opts $ handleSimple "Hello from console!"
+  hResult <- debugHandler opts $ handleSimple "Hello from console!"
   either print (\r -> (showResponseBody r) >>= print) hResult
   
   -- | Or simply debug some stuff.
-  debugHandlerIO opts $ do
+  debugHandler opts $ do
     liftIO $ putStrLn "Testing..."
     liftIO $ putStrLn "\n\nRoutes..."
     (liftIO . print) =<< getRoute' "blog_int" []

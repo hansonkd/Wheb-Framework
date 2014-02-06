@@ -31,63 +31,14 @@ import           Network.HTTP.Types.Header
 
 import           Data.ByteString (ByteString)
 
-class WhebContent a where
-  toResponse :: Status -> ResponseHeaders -> a -> Response
-
-data HandlerResponse = forall a . WhebContent a => HandlerResponse Status a
-data WhebFile = WhebFile FilePath
-type EResponse = Either WhebError Response
-data SettingsValue = forall a. (Typeable a) => MkVal a
-type CSettings = M.Map T.Text SettingsValue
-data WhebError = Error500 String 
-                  | Error404 
-                  | URLError T.Text UrlBuildError
-  deriving (Show)
-
-instance Error WhebError where 
-    strMsg = Error500
-
-data HandlerData g s m = 
-  HandlerData { globalCtx      :: g
-              , request        :: Request
-              , postData       :: ([Param], [File LBS.ByteString])
-              , routeParams    :: RouteParamList
-              , globalSettings :: WhebOptions g s m }
-
-data InternalState s =
-  InternalState { reqState     :: s
-                , respHeaders  :: M.Map HeaderName ByteString } 
-
-instance Default s => Default (InternalState s) where
-  def = InternalState def def
-
-data InitOptions g s m =
-  InitOptions { initRoutes      :: [ Route g s m ]
-              , initSettings    :: CSettings
-              , initWaiMw       :: Middleware
-              , initWhebMw   :: [ WhebMiddleware g s m ] }
-
-data WhebOptions g s m = MonadIO m => 
-  WhebOptions { appRoutes           :: [ Route g s m ]
-              , runTimeSettings     :: CSettings
-              , warpSettings        :: Warp.Settings
-              , startingCtx         :: g
-              , waiStack            :: Middleware
-              , whebMiddlewares     :: [ WhebMiddleware g s m ]
-              , defaultErrorHandler :: WhebError -> WhebHandlerT g s m }
-
-instance Monoid (InitOptions g s m) where
-  mappend (InitOptions a1 b1 c1 d1) (InitOptions a2 b2 c2 d2) = 
-      InitOptions (a1 <> a2) (b1 <> b2) (c2 . c1) (d1 <> d2)
-  mempty = InitOptions mempty mempty id mempty
-
-newtype InitM g s m a = InitM { runInitM :: WriterT (InitOptions g s m) IO a}
-  deriving (Functor, Applicative, Monad, MonadIO)
 
 -- | WhebT g s m
---   g -> The global confirgured context (Read-only data shared between threads)
---   s -> State initailized at the start of each request using Default
---   m -> Monad we are transforming
+--
+--   * g -> The global confirgured context (Read-only data shared between threads)
+-- 
+--   * s -> Request state initailized at the start of each request using Default
+--
+--   * m -> Monad we are transforming
 newtype WhebT g s m a = WhebT 
   { runWhebT :: ErrorT WhebError 
                   (ReaderT (HandlerData g s m) (StateT (InternalState s) m)) a 
@@ -100,12 +51,83 @@ instance (Monad m) => MonadError WhebError (WhebT g s m) where
     throwError = WhebT . throwError
     catchError (WhebT m) f = WhebT  (catchError m (runWhebT . f))
 
-type MinWheb a = WhebT () () IO a
-type MinOpts = WhebOptions () () IO
+-- | Writer Monad to build options.
+newtype InitM g s m a = InitM { runInitM :: WriterT (InitOptions g s m) IO a}
+  deriving (Functor, Applicative, Monad, MonadIO)
+
+-- | Converts a type to a WAI 'Response'
+class WhebContent a where
+  toResponse :: Status -> ResponseHeaders -> a -> Response
+
+-- | A Wheb response that represents a file.
+data WhebFile = WhebFile T.Text
+
+data HandlerResponse = forall a . WhebContent a => HandlerResponse Status a
+
+-- | Our 'ReaderT' portion of 'WhebT' uses this.
+data HandlerData g s m = 
+  HandlerData { globalCtx      :: g
+              , request        :: Request
+              , postData       :: ([Param], [File LBS.ByteString])
+              , routeParams    :: RouteParamList
+              , globalSettings :: WhebOptions g s m }
+
+-- | Our 'StateT' portion of 'WhebT' uses this.
+data InternalState s =
+  InternalState { reqState     :: s
+                , respHeaders  :: M.Map HeaderName ByteString } 
+                
+data SettingsValue = forall a. (Typeable a) => MkVal a
+
+data WhebError = Error500 String 
+               | Error404
+               | Error403
+               | URLError T.Text UrlBuildError
+  deriving (Show)
+
+instance Error WhebError where 
+    strMsg = Error500
+
+instance Default s => Default (InternalState s) where
+  def = InternalState def def
+
+-- | Monoid to use in InitM's WriterT
+data InitOptions g s m =
+  InitOptions { initRoutes      :: [ Route g s m ]
+              , initSettings    :: CSettings
+              , initWaiMw       :: Middleware
+              , initWhebMw   :: [ WhebMiddleware g s m ] }
+
+instance Monoid (InitOptions g s m) where
+  mappend (InitOptions a1 b1 c1 d1) (InitOptions a2 b2 c2 d2) = 
+      InitOptions (a1 <> a2) (b1 <> b2) (c2 . c1) (d1 <> d2)
+  mempty = InitOptions mempty mempty id mempty
+
+-- | The main option datatype for Wheb
+data WhebOptions g s m = MonadIO m => 
+  WhebOptions { appRoutes           :: [ Route g s m ]
+              , runTimeSettings     :: CSettings
+              , warpSettings        :: Warp.Settings
+              , startingCtx         :: g
+              , waiStack            :: Middleware
+              , whebMiddlewares     :: [ WhebMiddleware g s m ]
+              , defaultErrorHandler :: WhebError -> WhebHandlerT g s m }
+
+type EResponse = Either WhebError Response
+
+type CSettings = M.Map T.Text SettingsValue
+    
 type WhebHandler g s      = WhebT g s IO HandlerResponse
 type WhebHandlerT g s m   = WhebT g s m HandlerResponse
 type WhebMiddleware g s m = WhebT g s m (Maybe HandlerResponse)
------------------ Routes -----------------
+
+-- | A minimal type for WhebT
+type MinWheb a = WhebT () () IO a
+
+-- | A minimal type for WhebOptions
+type MinOpts = WhebOptions () () IO
+
+-- * Routes
 
 type  RouteParamList = [(T.Text, ParsedChunk)]
 type  MethodMatch = StdMethod -> Bool
@@ -128,9 +150,12 @@ data Route g s m = Route
 
 data ChunkType = IntChunk | TextChunk
 
-data UrlPat = Chunk T.Text 
-            | FuncChunk T.Text (T.Text -> Maybe ParsedChunk) ChunkType
+data UrlPat = Chunk T.Text
             | Composed [UrlPat]
+            | FuncChunk 
+                { chunkParamName :: T.Text
+                , chunkFunc :: (T.Text -> Maybe ParsedChunk)
+                , chunkType :: ChunkType }
 
 instance IsString UrlPat where
   fromString = Chunk . T.pack

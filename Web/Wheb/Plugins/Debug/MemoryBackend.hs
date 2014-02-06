@@ -57,6 +57,7 @@ instance AuthBackend UserData where
                 pwHash <- makePwHash pw
                 liftIO $ atomically $ writeTVar tv (M.insert name pwHash users)
                 return (Right $ AuthUser name)
+  backendLogout _ =  getUserSessionKey >>= deleteSessionValue
                 
 initSessionMemory :: InitM g s m SessionContainer
 initSessionMemory = do
