@@ -71,7 +71,7 @@ login un pw = do
 logout :: (AuthApp a, AuthState b, MonadIO m) => WhebT a b m ()
 logout = (runWithContainer backendLogout) >> (authSetUser Nothing)
 
--- | Get the current user from the request state (Needs to be populated first
+-- | Get the current user from the handler state (Needs to be populated first
 --   with 'authMiddleware')
 getCurrentUser :: (AuthState b, MonadIO m) => WhebT a b m (Maybe AuthUser)
 getCurrentUser = liftM getAuthUser getReqState
@@ -93,7 +93,7 @@ loginRequired action = getCurrentUser >>=
 
 -- * Middleware
 
--- | Auto-populates the request state with the current user.
+-- | Auto-populates the handler state with the current user.
 authMiddleware :: (AuthApp a, AuthState b, MonadIO m) => WhebMiddleware a b m
 authMiddleware = do
     cur <- queryCurrentUser
