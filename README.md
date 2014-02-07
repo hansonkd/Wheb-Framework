@@ -10,7 +10,7 @@ The primary goal of the Wheb framework is to extend the functionality of the bas
 
 The simplicity of [Scotty](http://hackage.haskell.org/package/scotty) inspired me, so I built the Wheb framework with the explicit goal that Template Haskell not be included in any part of the core server. 
 
-Other libraries feature transformers to roll your own Reader and State based applicaiton Monads, but it would be nice if they were built in. Practically every server will have a global read-only context that shares resources between threads and a request state that can change during request processing. Having these resources built in allows for plugins that can always expect those resources to be there.
+Other libraries feature transformers to roll your own Reader and State based applicaiton Monads, but it would be nice if they were built in. Practically every server will have a global read-only context that shares resources between threads and a handler state that can change during request processing. Having these resources built in allows for plugins that can always expect those resources to be there.
 
 Features
 --------
@@ -178,11 +178,11 @@ main = do
       return (GlobalApp sess auth)
   
   -- | Ability to easily run your handlers w/o a server.
-  hResult <- debugHandlerIO opts $ handleSimple "Hello from console!"
+  hResult <- debugHandler opts $ handleSimple "Hello from console!"
   either print (\r -> (showResponseBody r) >>= print) hResult
   
   -- | Or simply debug some stuff.
-  debugHandlerIO opts $ do
+  debugHandler opts $ do
     liftIO $ putStrLn "Testing..."
     liftIO $ putStrLn "\n\nRoutes..."
     (liftIO . print) =<< getRoute' "blog_int" [("pk", MkChunk (3 :: Int))]
