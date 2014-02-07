@@ -144,12 +144,19 @@ main = do
 Wheb uses named dynamically typed URLs. While this means you won't get compile-time checking of your URLs, it gives you some form of type safety beyond simple text. 
 
 ```haskell
--- | This URL will match /blog/1 but not /blog/foo
+-- This URL will match /blog/1 but not /blog/foo
 >> url = compilePat ("blog" </> (grabInt "pk"))
 >> generateUrl url [("pk", MkChunk 3)]
 Right "/blog/3/"
 >> generateUrl url [("pk", MkChunk 'A')]
 Left (ParamTypeMismatch "pk")
+...
+-- Inside the handler which matched on "/blog/10/"
+>> pk <- getRouteParam "pk" :: MinWheb (Maybe Int)
+>> pk
+Just 10
+>> pk <- getRouteParam "pk" :: MinWheb (Maybe Text)
+Nothing
 ```
 
 Also, because they are named you can generate one of your URLs based on its name and parameters.
