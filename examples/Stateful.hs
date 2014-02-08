@@ -29,6 +29,6 @@ main = do
   opts <- generateOptions $ do
             startingCounter <- liftIO $ newTVarIO 0
             addWhebMiddleware counterMw
-            addGET (pack ".") rootPat $ homePage
+            addGET "." rootPat $ homePage
             return $ (MyApp "AwesomeApp" startingCounter, MyHandlerData 0)
   runWhebServer opts
