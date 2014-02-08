@@ -8,7 +8,6 @@ import           Control.Monad.IO.Class
 import qualified Data.Text.Lazy as T
 import           Data.Maybe (fromJust, fromMaybe)
 import           Data.Monoid
-import           Data.Default
 import           Network.Wai.Middleware.RequestLogger
 
 import           Web.Wheb
@@ -35,9 +34,6 @@ instance AuthApp GlobalApp where
 instance AuthState RequestState where
   getAuthUser = curUser
   modifyAuthUser f c = c { curUser = f (curUser c) }
-  
-instance Default RequestState where
-    def = RequestState Nothing
 
 homePage :: WhebHandler GlobalApp RequestState
 homePage = do
@@ -122,7 +118,7 @@ main = do
       auth <- initAuthMemory
       
       -- | Return your new global context.
-      return (GlobalApp sess auth)
+      return (GlobalApp sess auth, RequestState Nothing)
   
   -- | Ability to easily run your handlers w/o a server.
   hResult <- debugHandler opts $ handleSimple "Hello from console!"

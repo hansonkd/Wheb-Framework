@@ -16,7 +16,6 @@ import           Control.Monad.Writer
 import           Data.Monoid ((<>))
 
 import qualified Data.ByteString.Lazy as LBS
-import           Data.Default
 import           Data.Map as M
 import           Data.String (IsString(..))
 import qualified Data.Text.Lazy as T
@@ -88,15 +87,12 @@ data WhebError = Error500 String
 instance Error WhebError where 
     strMsg = Error500
 
-instance Default s => Default (InternalState s) where
-  def = InternalState def def
-
 -- | Monoid to use in InitM's WriterT
 data InitOptions g s m =
   InitOptions { initRoutes      :: [ Route g s m ]
               , initSettings    :: CSettings
               , initWaiMw       :: Middleware
-              , initWhebMw   :: [ WhebMiddleware g s m ] }
+              , initWhebMw      :: [ WhebMiddleware g s m ] }
 
 instance Monoid (InitOptions g s m) where
   mappend (InitOptions a1 b1 c1 d1) (InitOptions a2 b2 c2 d2) = 
@@ -108,7 +104,8 @@ data WhebOptions g s m = MonadIO m =>
   WhebOptions { appRoutes           :: [ Route g s m ]
               , runTimeSettings     :: CSettings
               , warpSettings        :: Warp.Settings
-              , startingCtx         :: g
+              , startingCtx         :: g -- ^ Global ctx shared between requests
+              , startingState       :: InternalState s -- ^ Handler state given each request
               , waiStack            :: Middleware
               , whebMiddlewares     :: [ WhebMiddleware g s m ]
               , defaultErrorHandler :: WhebError -> WhebHandlerT g s m }

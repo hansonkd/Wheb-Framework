@@ -44,15 +44,15 @@ module Web.Wheb.WhebT
   , runWhebServerT
   , debugHandler
   , debugHandlerT
-  )where
+  ) where
 
+import           Blaze.ByteString.Builder (Builder)
 import           Control.Monad.Error
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.State
 import qualified Data.ByteString.Lazy as LBS
 import           Data.CaseInsensitive (mk)
-import           Data.Default
 import qualified Data.Map as M
 import           Data.Maybe (fromMaybe)
 import qualified Data.Text.Lazy as T
@@ -87,7 +87,7 @@ getWithApp = flip liftM getApp
 
 -- | Get the 's' in @WhebT g s m g@. This is a read and writable state
 -- so you can get and put information in your state. Each request gets its own
--- fresh state generated from "Default"
+-- fresh state duplicated from our options 'startingState'
 getReqState :: Monad m => WhebT g s m s
 getReqState = WhebT $ liftM reqState get
 
@@ -209,10 +209,16 @@ text c = do
     setHeader (T.pack "Content-Type") (T.pack "text/plain") 
     return $ HandlerResponse status200 c
 
+-- | Give content type and Blaze Builder
+builder :: Monad m => T.Text -> Builder -> WhebHandlerT g s m
+builder c b = do
+    setHeader (T.pack "Content-Type") c 
+    return $ HandlerResponse status200 b
+    
 -- * Running a Wheb Application
 
 -- | Running a Handler with a custom Transformer
-debugHandlerT :: (Default s) => WhebOptions g s m ->
+debugHandlerT :: WhebOptions g s m ->
              (m (Either WhebError a) -> IO (Either WhebError a)) ->
              Request ->
              WhebT g s m a ->
@@ -222,15 +228,14 @@ debugHandlerT opts@(WhebOptions {..}) runIO r h =
     where baseData = HandlerData startingCtx r ([], []) [] opts
 
 -- | Convenience wrapper for 'debugHandlerT' function in 'IO'
-debugHandler :: (Default s) => WhebOptions g s IO -> 
+debugHandler :: WhebOptions g s IO -> 
               WhebT g s IO a ->
               IO (Either WhebError a)
 debugHandler opts h = debugHandlerT opts id defaultRequest h
 
 -- | Run a server with a function to run your inner Transformer to IO and 
 -- generated options
-runWhebServerT :: (Default s) => 
-                  (m EResponse -> IO EResponse) ->
+runWhebServerT :: (m EResponse -> IO EResponse) ->
                   WhebOptions g s m ->
                   IO ()
 runWhebServerT runIO opts@(WhebOptions {..}) = do
@@ -240,7 +245,6 @@ runWhebServerT runIO opts@(WhebOptions {..}) = do
         optsToApplication opts runIO
 
 -- | Convenience wrapper for 'runWhebServerT' function in IO
-runWhebServer :: (Default s) => 
-                 (WhebOptions g s IO) ->
+runWhebServer :: (WhebOptions g s IO) ->
                  IO ()
 runWhebServer = runWhebServerT id

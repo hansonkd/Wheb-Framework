@@ -7,7 +7,6 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Writer
-import           Data.Default
 import qualified Data.Map as M
 import qualified Data.Text.Lazy as T
 
@@ -22,7 +21,7 @@ import           Web.Wheb.Utils
 -- * Converting to WAI application
                       
 -- | Convert 'WhebOptions' to 'Application'                        
-optsToApplication :: (Default s) => WhebOptions g s m ->
+optsToApplication :: WhebOptions g s m ->
                      (m EResponse -> IO EResponse) ->
                      Application
 optsToApplication opts@(WhebOptions {..}) runIO r = do
@@ -41,15 +40,15 @@ optsToApplication opts@(WhebOptions {..}) runIO r = do
   where baseData   = HandlerData startingCtx r ([], []) [] opts
         pathChunks = fmap T.fromStrict $ pathInfo r
         stdMthd    = either (\_-> GET) id $ parseMethod $ requestMethod r
+        runErrorHandler eh = runWhebHandler opts eh startingState baseData
         handleError err = do
-          errRes <- runIO $ 
-                    runWhebHandler opts (defaultErrorHandler err) def baseData
+          errRes <- runIO $ runErrorHandler (defaultErrorHandler err)
           either (return . (const uhOh)) return errRes
 
 -- * Running Handlers
 
 -- | Run all inner wheb monads to the top level.
-runWhebHandler :: (Default s, Monad m) =>
+runWhebHandler :: Monad m =>
                     WhebOptions g s m ->
                     WhebHandlerT g s m ->
                     InternalState s ->
@@ -65,13 +64,13 @@ runWhebHandler opts@(WhebOptions {..}) handler st hd = do
                           toResponse status (M.toList hds) resp
 
 -- | Same as above but returns arbitrary type for debugging.
-runDebugHandler :: (Default s, Monad m) =>
+runDebugHandler :: Monad m =>
                     WhebOptions g s m ->
                     WhebT g s m a  ->
                     HandlerData g s m ->
                     m (Either WhebError a)
 runDebugHandler opts@(WhebOptions {..}) handler hd = do
-  flip evalStateT def $ do
+  flip evalStateT startingState $ do
             flip runReaderT hd $
               runErrorT $
               runWhebT handler
@@ -80,12 +79,12 @@ runDebugHandler opts@(WhebOptions {..}) handler hd = do
 -- * Running Middlewares
  
 -- | Runs middlewares in order, stopping if one returns a response
-runMiddlewares :: (Default s, Monad m) =>
+runMiddlewares :: Monad m =>
                   WhebOptions g s m ->
                   [WhebMiddleware g s m] ->
                   HandlerData g s m ->
                   m (Maybe Response, InternalState s)
-runMiddlewares opts mWs hd = loop mWs def
+runMiddlewares opts mWs hd = loop mWs (startingState opts)
     where loop [] st = return (Nothing, st)
           loop (mw:mws) st = do
                   mwResult <-  (runWhebMiddleware opts st hd mw)
@@ -93,7 +92,7 @@ runMiddlewares opts mWs hd = loop mWs def
                         (Just resp, nst) -> return mwResult
                         (Nothing, nst)   -> loop mws nst
 
-runWhebMiddleware :: (Default s, Monad m) =>
+runWhebMiddleware :: Monad m =>
                     WhebOptions g s m ->
                     InternalState s ->
                     HandlerData g s m ->

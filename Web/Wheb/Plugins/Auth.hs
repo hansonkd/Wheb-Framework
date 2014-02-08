@@ -83,8 +83,8 @@ queryCurrentUser = getUserSessionKey >>=
                  getSessionValue' (T.pack "") >>=
                  (\uid -> runWithContainer $ backendGetUser uid)
 
--- | Checks if a user is logged in with 'getCurrentUser' and prevents a handler
---   from running if they aren't
+-- | Checks if a user is logged in with 'getCurrentUser' and throws a 500
+--   if they aren't.
 loginRequired :: (AuthState b, MonadIO m) =>
                  WhebHandlerT a b m ->
                  WhebHandlerT a b m

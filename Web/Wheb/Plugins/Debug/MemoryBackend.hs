@@ -16,6 +16,7 @@ data SessionData = SessionData
   { sessionMemory ::  TVar (M.Map Text (M.Map Text Text)) }
 data UserData = UserData
   { userStorage :: TVar (M.Map UserKey PwHash) }
+
 -- | In memory session backend. Session values 
 -- will not persist after server restart.
 instance SessionBackend SessionData where

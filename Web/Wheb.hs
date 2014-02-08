@@ -80,7 +80,7 @@ module Web.Wheb
   
   -- * Running
   , generateOptions
-  
+  , genMinOpts
   -- * Routes
   -- ** URL Patterns
   , compilePat
@@ -92,13 +92,14 @@ module Web.Wheb
   , grabText
   , pT
   , pS
+  -- * Utilities
+  , spack
   -- * Types
   , module Web.Wheb.Types
-  , Default (..)
   ) where
 
 import Web.Wheb.WhebT
 import Web.Wheb.InitM
 import Web.Wheb.Types
 import Web.Wheb.Routes
-import Data.Default
+import Web.Wheb.Utils

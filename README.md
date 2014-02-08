@@ -98,7 +98,7 @@ main = do
 
 Wheb has built in support for global contexts and stateful handlers.
 
-Wheb seperates the read-only thread-safe environment resources from a handler specific state. On each request a fresh state is generate using the Default library. 
+Wheb seperates the read-only thread-safe environment resources from a handler specific state. Any modififcations to the state will only be visible in that request. 
 
 ```haskell
 {-# LANGUAGE OverloadedStrings #-}
@@ -111,9 +111,6 @@ import           Web.Wheb
 
 data MyApp = MyApp Text (TVar Int)
 data MyHandlerData = MyHandlerData Int
-
-instance Default MyHandlerData where
-  def = MyHandlerData 0
 
 counterMw :: MonadIO m => WhebMiddleware MyApp MyHandlerData m
 counterMw = do

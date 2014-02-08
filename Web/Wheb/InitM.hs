@@ -19,7 +19,7 @@ module Web.Wheb.InitM
   
   -- * Running
   , generateOptions
-  
+  , genMinOpts
   ) where
     
 import           Control.Monad.IO.Class
@@ -74,13 +74,18 @@ addSettings :: CSettings -> InitM g s m ()
 addSettings settings = InitM $ tell $ mempty { initSettings = settings }
 
 -- | Generate 'WhebOptions' from 'InitM' in 'IO'
-generateOptions :: MonadIO m => InitM g s m g -> IO (WhebOptions g s m)
+generateOptions :: MonadIO m => InitM g s m (g, s) -> IO (WhebOptions g s m)
 generateOptions m = do 
-  (g, InitOptions {..}) <- runWriterT (runInitM m)
+  ((g, s), InitOptions {..}) <- runWriterT (runInitM m)
   return $ WhebOptions { appRoutes = initRoutes
                          , runTimeSettings = initSettings
                          , warpSettings = defaultSettings
                          , startingCtx = g
+                         , startingState = InternalState s M.empty
                          , waiStack = initWaiMw
                          , whebMiddlewares = initWhebMw
                          , defaultErrorHandler = defaultErr }
+
+-- | Generate options for an application without a context or state
+genMinOpts :: InitM () () IO () -> IO MinOpts
+genMinOpts m = generateOptions (m >> (return ((), ()))) 
