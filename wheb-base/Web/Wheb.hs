@@ -32,6 +32,7 @@ module Web.Wheb
   , html
   , text
   , file
+  , builder
   -- *** Setting a header
   , setHeader
   , setRawHeader

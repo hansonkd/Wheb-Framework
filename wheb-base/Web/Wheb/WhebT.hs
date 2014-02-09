@@ -18,6 +18,7 @@ module Web.Wheb.WhebT
   , html
   , text
   , file
+  , builder
   
   -- * Settings
   , getSetting
@@ -126,8 +127,14 @@ getRouteParams :: Monad m => WhebT g s m RouteParamList
 getRouteParams = WhebT $ liftM routeParams ask
 
 -- | Cast a route param into its type.
-getRouteParam :: (Typeable a, Monad m) => T.Text -> WhebT g s m (Maybe a)
-getRouteParam t = liftM (getParam t) getRouteParams
+getRouteParam :: (Typeable a, Monad m) => T.Text -> WhebT g s m a
+getRouteParam t = do
+  p <- getRouteParam' t
+  maybe (throwError RouteParamDoesNotExist) return p
+
+-- | Cast a route param into its type.
+getRouteParam' :: (Typeable a, Monad m) => T.Text -> WhebT g s m (Maybe a)
+getRouteParam' t = liftM (getParam t) getRouteParams
 
 -- | Convert 'Either' from 'getRoute'' into an error in the Monad
 getRoute :: Monad m => T.Text -> RouteParamList ->  WhebT g s m T.Text

@@ -81,6 +81,7 @@ data SettingsValue = forall a. (Typeable a) => MkVal a
 data WhebError = Error500 String 
                | Error404
                | Error403
+               | RouteParamDoesNotExist
                | URLError T.Text UrlBuildError
   deriving (Show)
 
@@ -120,7 +121,7 @@ type WhebMiddleware g s m = WhebT g s m (Maybe HandlerResponse)
 
 -- | A minimal type for WhebT
 type MinWheb a = WhebT () () IO a
-
+type MinHandler = MinWheb HandlerResponse
 -- | A minimal type for WhebOptions
 type MinOpts = WhebOptions () () IO
 
