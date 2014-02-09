@@ -1,14 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import           Control.Monad (forM_)
-import           Control.Monad.IO.Class
-import           Data.Text.Lazy (pack)
-import           Data.Text.Lazy.Read (decimal)
+import           Control.Monad.IO.Class (liftIO)
+import           Data.Text.Lazy (unpack)
+import           Text.Read (readMaybe)
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
-import           Text.Blaze.Html.Renderer.Utf8
-import           Web.Wheb
+import           Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 
+import           Web.Wheb
 
 blazeResp :: H.Html -> MinHandler
 blazeResp = builder "text/html" . renderHtmlBuilder
@@ -31,13 +31,12 @@ handleHome = do
 handlePOST :: MinHandler
 handlePOST = do
   n <- getPOSTParam "num"
-  let num = n >>= (\n -> either (const Nothing) (Just . fst) (decimal n)) :: Maybe Int
   blazeResp $ H.docTypeHtml $ do
        H.head $ do
            H.title "Wheb numbers."
        H.body $ do
           H.h1 "Got some POST data!"
-          case num of
+          case (n >>= (readMaybe . unpack) :: Maybe Int) of
               Just i -> do
                   H.p "A list of natural numbers:"
                   H.ul $ forM_ [1 .. i] (H.li . H.toHtml)
