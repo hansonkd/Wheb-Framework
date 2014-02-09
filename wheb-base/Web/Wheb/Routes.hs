@@ -1,8 +1,7 @@
 module Web.Wheb.Routes
   (
   -- * Convenience constructors
-    rGET
-  , rPOST
+    patRoute
   -- * URL Patterns
   , compilePat
   , rootPat
@@ -33,11 +32,12 @@ import           Web.Wheb.Types
 
 -- * Convenience constructors
 
-rGET :: (Maybe T.Text) -> UrlPat -> WhebHandlerT g s m -> Route g s m
-rGET n p = Route n (==GET) (compilePat p)
-
-rPOST :: (Maybe T.Text) -> UrlPat -> WhebHandlerT g s m -> Route g s m
-rPOST n p = Route n (==POST) (compilePat p)
+patRoute :: (Maybe T.Text) -> 
+            StdMethod -> 
+            UrlPat -> 
+            WhebHandlerT g s m -> 
+            Route g s m
+patRoute n m p = Route n (==m) (compilePat p)
 
 -- * URL Patterns
 

@@ -6,6 +6,8 @@ module Web.Wheb.InitM
   -- ** Named routes convenience functions
     addGET
   , addPOST
+  , addPUT
+  , addDELETE
   -- ** Add raw routes
   , addRoute
   , addRoutes
@@ -37,10 +39,16 @@ import           Web.Wheb.Types
 import           Web.Wheb.Utils
 
 addGET :: T.Text -> UrlPat -> WhebHandlerT g s m -> InitM g s m ()
-addGET n p h = addRoute $ rGET (Just n) p h
+addGET n p h = addRoute $ patRoute (Just n) GET p h
 
 addPOST :: T.Text -> UrlPat -> WhebHandlerT g s m -> InitM g s m ()
-addPOST n p h = addRoute $ rPOST (Just n) p h
+addPOST n p h = addRoute $ patRoute (Just n) POST p h
+
+addPUT :: T.Text -> UrlPat -> WhebHandlerT g s m -> InitM g s m ()
+addPUT n p h = addRoute $ patRoute (Just n) PUT p h
+
+addDELETE :: T.Text -> UrlPat -> WhebHandlerT g s m -> InitM g s m ()
+addDELETE n p h = addRoute $ patRoute (Just n) DELETE p h
 
 addRoute :: Route g s m -> InitM g s m ()
 addRoute r = addRoutes [r]
@@ -60,7 +68,6 @@ addWAIMiddleware m = InitM $ tell $ mempty { initWaiMw = m }
 -- | Add "Wheb" specific middleware
 addWhebMiddleware :: WhebMiddleware g s m -> InitM g s m ()
 addWhebMiddleware m = InitM $ tell $ mempty { initWhebMw = [m] }
-
 
 -- | Wrapped 'addSetting'' to help prevent monomorphism errors for simple settings.
 addSetting :: T.Text -> T.Text -> InitM g s m ()

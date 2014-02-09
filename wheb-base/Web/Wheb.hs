@@ -67,6 +67,8 @@ module Web.Wheb
   -- *** Named routes convenience functions
   , addGET
   , addPOST
+  , addPUT
+  , addDELETE
   -- *** Add raw routes
   , addRoute
   , addRoutes
