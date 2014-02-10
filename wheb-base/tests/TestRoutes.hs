@@ -10,21 +10,18 @@ import Web.Wheb.Routes (testUrlParser)
 data UrlPair = UrlPair UrlPat RouteParamList
 data UrlChunk = UrlChunk {unwrapChunk :: UrlPat}
 
-generateParamName = suchThat (listOf1 $ elements ['a'..'z']) (\n -> (length n) > 5)
+generateParamName = suchThat (listOf1 $ elements ['a'..'Z']) (\n -> (length n) > 5)
 
 instance Show UrlPair where
     show (UrlPair up pl) = "UrlParser | " ++ (show up)
 
-instance Arbitrary UrlChunk where
-    arbitrary = do
-        typ <- choose (0, 2) :: Gen Int
-        case typ of
-            0 -> generateParamName >>= (return . UrlChunk . grabInt . T.pack)
-            1 -> generateParamName >>= (return . UrlChunk . grabText . T.pack)
-            2 -> (generateParamName) >>= (return . UrlChunk . pS)
-
 instance Arbitrary UrlPat where
-    arbitrary = (sized vector) >>= (return . Composed . fmap unwrapChunk)
+    arbitrary = (sized $ flip vectorOf cs) >>= (return . Composed)
+     where cs :: Gen UrlPat
+           cs = oneof 
+            [ generateParamName >>= (return . grabInt . T.pack)
+            , generateParamName >>= (return . grabText . T.pack)
+            , generateParamName >>= (return . pS) ]
 
 instance Arbitrary UrlPair where
     arbitrary = do
@@ -35,7 +32,7 @@ instance Arbitrary UrlPair where
            loop [] acc = return acc
            loop ((Composed a):ps) acc = loop (a ++ ps) acc
            loop ((FuncChunk n _ IntChunk):ps) acc = do
-                int <- suchThat arbitrary (\a -> a > 0) :: Gen Int
+                int <- arbitrary :: Gen Int
                 loop ps ((n, MkChunk int):acc)
            loop ((FuncChunk n _ TextChunk):ps) acc = do
                 text <- arbitrary :: Gen String
