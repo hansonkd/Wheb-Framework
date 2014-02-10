@@ -97,12 +97,15 @@ module Web.Wheb
   , pS
   -- * Utilities
   , spack
+  , MonadIO(..)
   -- * Types
   , module Web.Wheb.Types
   ) where
+
 
 import Web.Wheb.WhebT
 import Web.Wheb.InitM
 import Web.Wheb.Types
 import Web.Wheb.Routes
 import Web.Wheb.Utils
+import Control.Monad.IO.Class

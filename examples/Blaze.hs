@@ -25,7 +25,7 @@ handleHome = do
        H.head $ do
            H.title "Wheb numbers."
        H.body $ do
-          H.h1 "Welcome to the Wheb Blaze HTML example!"
+          H.h1 "Wheb Blaze HTML example"
           blazeForm
 
 handlePOST :: MinHandler
