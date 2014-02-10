@@ -17,6 +17,7 @@ import           Control.Monad.Writer
 import           Data.Monoid ((<>))
 
 import qualified Data.ByteString.Lazy as LBS
+import           Data.List (intercalate)
 import           Data.Map as M
 import           Data.String (IsString(..))
 import qualified Data.Text.Lazy as T
@@ -155,6 +156,7 @@ data Route g s m = Route
   , routeHandler :: (WhebHandlerT g s m) }
 
 data ChunkType = IntChunk | TextChunk
+  deriving (Show)
 
 data UrlPat = Chunk T.Text
             | Composed [UrlPat]
@@ -162,6 +164,11 @@ data UrlPat = Chunk T.Text
                 { chunkParamName :: T.Text
                 , chunkFunc :: (T.Text -> Maybe ParsedChunk)
                 , chunkType :: ChunkType }
+
+instance Show UrlPat where
+  show (Chunk a) = "[Chunk " ++ (T.unpack a) ++ "]"
+  show (Composed a) = intercalate "/" $ fmap show a
+  show (FuncChunk pn _ ct) = "[FuncChunk " ++ (T.unpack pn) ++ " | " ++ (show ct) ++ "]"
 
 instance IsString UrlPat where
   fromString = Chunk . T.pack
