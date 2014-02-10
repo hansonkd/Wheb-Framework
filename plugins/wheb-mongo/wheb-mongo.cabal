@@ -11,6 +11,8 @@ build-type:          Simple
 cabal-version:       >=1.8
 description:         
   Wheb plugin for MongoDB.
+  .
+  For a complete example, see the examples folder at <https://github.com/hansonkd/Wheb-Framework/tree/master/examples github>
 
 library
   exposed-modules:     Web.Wheb.Plugins.Mongo

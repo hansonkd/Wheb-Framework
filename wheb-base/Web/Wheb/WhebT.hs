@@ -48,10 +48,17 @@ module Web.Wheb.WhebT
   ) where
 
 import           Blaze.ByteString.Builder (Builder)
+import           Control.Concurrent (forkIO)
+import           Control.Concurrent.STM
 import           Control.Monad.Error
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.State
+
+import Control.Exception as E
+import Control.Concurrent
+import System.Posix.Signals (installHandler, Handler(Catch), sigINT, sigTERM)
+
 import qualified Data.ByteString.Lazy as LBS
 import           Data.CaseInsensitive (mk)
 import qualified Data.Map as M
@@ -247,9 +254,34 @@ runWhebServerT :: (m EResponse -> IO EResponse) ->
                   IO ()
 runWhebServerT runIO opts@(WhebOptions {..}) = do
     putStrLn $ "Now running on port " ++ (show $ W.settingsPort $ warpSettings)
-    runSettings warpSettings $ 
+
+    installHandler sigINT catchSig Nothing
+    installHandler sigTERM catchSig Nothing
+
+    forkIO $ runSettings warpSettings $
+        gracefulExit $
         waiStack $ 
         optsToApplication opts runIO
+
+    loop
+    waitForConnections
+    putStrLn $ "Shutting down server..."
+    sequence_ cleanupActions
+
+  where catchSig = (Catch (atomically $ writeTVar shutdownTVar True))
+        loop = do
+          shutDown <- atomically $ readTVar shutdownTVar
+          if shutDown then return () else (threadDelay 100000) >> loop
+        gracefulExit app r = do
+          isExit <- atomically $ readTVar shutdownTVar
+          case isExit of
+              False -> app r
+              True  -> return $ responseLBS serviceUnavailable503 [] LBS.empty
+        waitForConnections = do
+          openConnections <- atomically $ readTVar activeConnections
+          if (openConnections > 0)
+            then waitForConnections
+            else return ()
 
 -- | Convenience wrapper for 'runWhebServerT' function in IO
 runWhebServer :: (WhebOptions g s IO) ->

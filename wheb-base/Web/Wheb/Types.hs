@@ -6,6 +6,7 @@
 module Web.Wheb.Types where
 
 import           Blaze.ByteString.Builder (Builder, fromLazyByteString)
+import           Control.Concurrent.STM
 import           Control.Applicative
 import           Control.Monad.Error
 import           Control.Monad.Trans
@@ -93,12 +94,13 @@ data InitOptions g s m =
   InitOptions { initRoutes      :: [ Route g s m ]
               , initSettings    :: CSettings
               , initWaiMw       :: Middleware
-              , initWhebMw      :: [ WhebMiddleware g s m ] }
+              , initWhebMw      :: [ WhebMiddleware g s m ]
+              , initCleanup     :: [ IO () ] }
 
 instance Monoid (InitOptions g s m) where
-  mappend (InitOptions a1 b1 c1 d1) (InitOptions a2 b2 c2 d2) = 
-      InitOptions (a1 <> a2) (b1 <> b2) (c2 . c1) (d1 <> d2)
-  mempty = InitOptions mempty mempty id mempty
+  mappend (InitOptions a1 b1 c1 d1 e1) (InitOptions a2 b2 c2 d2 e2) = 
+      InitOptions (a1 <> a2) (b1 <> b2) (c2 . c1) (d1 <> d2) (e1 <> e2)
+  mempty = InitOptions mempty mempty id mempty mempty
 
 -- | The main option datatype for Wheb
 data WhebOptions g s m = MonadIO m => 
@@ -109,7 +111,10 @@ data WhebOptions g s m = MonadIO m =>
               , startingState       :: InternalState s -- ^ Handler state given each request
               , waiStack            :: Middleware
               , whebMiddlewares     :: [ WhebMiddleware g s m ]
-              , defaultErrorHandler :: WhebError -> WhebHandlerT g s m }
+              , defaultErrorHandler :: WhebError -> WhebHandlerT g s m
+              , shutdownTVar       :: TVar Bool
+              , activeConnections   :: TVar Int
+              , cleanupActions      :: [ IO () ] }
 
 type EResponse = Either WhebError Response
 

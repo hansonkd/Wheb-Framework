@@ -80,7 +80,8 @@ module Web.Wheb
   , addSetting
   , addSetting'
   , addSettings
-  
+  -- ** Cleanup
+  , addCleanupHook
   -- * Running
   , generateOptions
   , genMinOpts

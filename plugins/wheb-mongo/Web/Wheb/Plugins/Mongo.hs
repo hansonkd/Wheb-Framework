@@ -65,4 +65,5 @@ runAction action = do
 initMongo :: T.Text -> T.Text -> InitM g s m MongoContainer
 initMongo host db = do
     pipe <- liftIO $ runIOE $ connect (readHostPort $ T.unpack host)
+    addCleanupHook $ close pipe
     return $ MongoContainer pipe master (T.toStrict db)

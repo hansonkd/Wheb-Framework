@@ -18,19 +18,23 @@ module Web.Wheb.InitM
   , addSetting
   , addSetting'
   , addSettings
-  
+  -- * Cleanup
+  , addCleanupHook
   -- * Running
   , generateOptions
   , genMinOpts
   ) where
-    
+
+import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
 import           Control.Monad.Writer
 import qualified Data.Map as M
 import qualified Data.Text.Lazy as T
 import           Data.Typeable
 import           Network.Wai
-import           Network.Wai.Handler.Warp (defaultSettings)
+import           Network.Wai.Handler.Warp (defaultSettings
+                                          , settingsOnOpen
+                                          , settingsOnClose)
 import           Network.HTTP.Types.Method
 
 import           Web.Wheb.Internal
@@ -80,18 +84,32 @@ addSetting' k v = addSettings $ M.fromList [(k, MkVal v)]
 addSettings :: CSettings -> InitM g s m ()
 addSettings settings = InitM $ tell $ mempty { initSettings = settings }
 
+-- | IO Actions to run after server has been stopped.
+addCleanupHook :: IO () -> InitM g s m ()
+addCleanupHook action = InitM $ tell $ mempty { initCleanup = [action] }
+
 -- | Generate 'WhebOptions' from 'InitM' in 'IO'
 generateOptions :: MonadIO m => InitM g s m (g, s) -> IO (WhebOptions g s m)
 generateOptions m = do 
   ((g, s), InitOptions {..}) <- runWriterT (runInitM m)
+  tv <- liftIO $ newTVarIO False
+  ac <- liftIO $ newTVarIO 0
+  let warpsettings = defaultSettings 
+                        { settingsOnOpen = atomically (addToTVar ac)
+                        , settingsOnClose = atomically (subFromTVar ac)}
   return $ WhebOptions { appRoutes = initRoutes
                          , runTimeSettings = initSettings
-                         , warpSettings = defaultSettings
+                         , warpSettings = warpsettings
                          , startingCtx = g
                          , startingState = InternalState s M.empty
                          , waiStack = initWaiMw
                          , whebMiddlewares = initWhebMw
-                         , defaultErrorHandler = defaultErr }
+                         , defaultErrorHandler = defaultErr
+                         , shutdownTVar  = tv
+                         , activeConnections = ac
+                         , cleanupActions = initCleanup }
+  where addToTVar ac = ((readTVar ac) >>= (\cs -> writeTVar ac (succ cs)))
+        subFromTVar ac = ((readTVar ac) >>= (\cs -> writeTVar ac (pred cs)))
 
 -- | Generate options for an application without a context or state
 genMinOpts :: InitM () () IO () -> IO MinOpts

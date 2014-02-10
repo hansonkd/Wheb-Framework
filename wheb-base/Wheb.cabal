@@ -61,12 +61,19 @@ description:
   .
   Wheb allows you to write robust high concurrency web applications simply and effectively.
   .
-    * The core datatype will allow you to build anything from a read-only server to a fully interactive web application with hundreds of routes without needing to define MonadTransformers.
+  * The core datatype will allow you to build anything from a read-only server to a fully interactive web application with hundreds of routes without needing to define MonadTransformers.
   .
-    * Minimal boilerplate to start your application.
+  * Minimal boilerplate to start your application.
   .
-    * Plugin system
+  /Plugins/
   .
+  * Sessions
+  .
+  * Auth
+  .
+  * <http://hackage.haskell.org/package/wheb-mongo Wheb-Mongo>
+  .
+
     
 source-repository head
   type:     git
