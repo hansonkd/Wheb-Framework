@@ -11,6 +11,7 @@ module Web.Wheb.InitM
   -- ** Add raw routes
   , addRoute
   , addRoutes
+  , catchAll
   -- * Middlewares
   , addWAIMiddleware
   , addWhebMiddleware
@@ -60,9 +61,9 @@ addRoute r = addRoutes [r]
 addRoutes :: [Route g s m] -> InitM g s m ()
 addRoutes rs = InitM $ tell $ mempty { initRoutes = rs }
 
--- | Catch all routes regardless of method or path
-catchAllRoutes :: WhebHandlerT g s m -> InitM g s m ()
-catchAllRoutes h = addRoute $ Route Nothing (const True) parser h
+-- | Catch all requests regardless of method or path
+catchAll :: WhebHandlerT g s m -> InitM g s m ()
+catchAll h = addRoute $ Route Nothing (const True) parser h
         where parser = UrlParser (const (Just [])) (const (Right $ T.pack "/*"))
 
 -- | Add generic "WAI" middleware

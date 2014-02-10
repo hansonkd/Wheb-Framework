@@ -76,6 +76,9 @@ handleRegister = do
     result   <- register userName userPass
     html $ "<h1>Register result...</h1>" <> (T.pack $ show result)
 
+handleFAQ :: WhebHandler GlobalApp RequestState
+handleFAQ = file "examples/resources/faq.html" "text/html"
+
 handleLogin :: WhebHandler GlobalApp RequestState
 handleLogin = do
     userName <- liftM (fromMaybe "") $ getPOSTParam "username"
@@ -100,7 +103,7 @@ main = do
       
       -- | Add your application routes...
       addGET "root" rootPat homePage
-      addGET "faq" "faq" $  handleSimple "FAQ"
+      addGET "faq" "faq" $  handleFAQ
       addPOST "post_store" ("post" </> "store") handlePOST
       
       -- | Auth Handlers.
@@ -111,7 +114,7 @@ main = do
       -- | Overloaded URLs
       addGET "blog_int"  ("blog" </> (grabInt "pk")) $ handleSimple "Number"
       addGET  "blog_txt" ("blog" </> (grabText "slug")) $ 
-            (getRouteParam "slug") >>= (handleSimple . fromJust)
+            (getRouteParam "slug") >>= (handleSimple)
       
       -- | Initialize any backends.
       sess <- initSessionMemory

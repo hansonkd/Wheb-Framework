@@ -24,11 +24,13 @@ import qualified Data.Text.Lazy as T
 import           Data.Text.Lazy.Read
 import           Data.Typeable
 import           Network.HTTP.Types.Method
+import           Network.HTTP.Types.URI
 
 import           Data.Maybe (fromJust)
 import           Data.Monoid ((<>))
 
 import           Web.Wheb.Types
+import           Web.Wheb.Utils
 
 -- * Convenience constructors
 
@@ -48,16 +50,15 @@ compilePat a = UrlParser (matchPat [a]) (buildPat [a])
 
 -- | Represents root path @/@
 rootPat :: UrlPat
-rootPat = Composed [] 
+rootPat = Chunk $ T.pack ""
 
 
 
 -- | Allows for easier building of URL patterns
 --   This should be the primary URL constructor.
 --   
---  @
---        (\"blog\" '</>' ('grabInt' \"pk\") '</>' \"edit\" '</>' ('grabText' \"verb\"))
---  @
+-- > (\"blog\" '</>' ('grabInt' \"pk\") '</>' \"edit\" '</>' ('grabText' \"verb\"))
+--  
 (</>) :: UrlPat -> UrlPat -> UrlPat
 (Composed a) </> (Composed b) = Composed (a ++ b)
 a </> (Composed b) = Composed (a:b)
@@ -119,13 +120,15 @@ findUrlMatch rmtd path ((Route _ methodMatch (UrlParser f _) h):rs)
 --       But not "/blog/1/", "/blog/1", "blog/foo/edit/", "/blog/9/edit/d",
 --       nor "/blog/9/edit//"
 matchPat :: [UrlPat] ->  [T.Text] -> Maybe RouteParamList
-matchPat chunks t = parse t chunks []
+matchPat chunks [] = matchPat chunks [T.pack ""]
+matchPat chunks t  = parse t chunks []
   where parse [] [] params = Just params
         parse [] c  params = Nothing
-        parse (u:[])  [] params | T.null u  = Just params -- Match only 1 trailing slash
-                                | otherwise = Nothing
+        parse (u:[]) [] params | T.null u  = Just params
+                               | otherwise = Nothing
         parse (u:us) [] _ = Nothing
-        parse (u:us) ((Chunk c):cs) params | u == c    = parse us cs params
+        parse (u:us) ((Chunk c):cs) params | T.null c  = parse (u:us) cs params
+                                           | u == c    = parse us cs params
                                            | otherwise = Nothing
         parse (u:us) ((FuncChunk k f _):cs) params = do
                                             val <- f u
@@ -135,14 +138,17 @@ matchPat chunks t = parse t chunks []
 buildPat :: [UrlPat] -> RouteParamList -> Either UrlBuildError T.Text
 buildPat pats params = fmap addSlashes $ build [] pats
     where build acc [] = Right acc
-          build acc ((Chunk c):cs)         = build (acc <> [c]) cs
+          build acc ((Chunk c):[]) | T.null c = build (acc <> [c]) []
+          build acc ((Chunk c):cs) | T.null c = build acc cs
+                                   | otherwise = build (acc <> [c]) cs
           build acc ((Composed xs):cs)     = build acc (xs <> cs)
           build acc ((FuncChunk k _ t):cs) = 
               case (showParam t k params) of
                       (Right  v)  -> build (acc <> [v]) cs
                       (Left err)  -> Left err
-          slash = (T.pack "/")
-          addSlashes list = slash <> (T.intercalate slash list) <> slash
+          addSlashes []   = T.pack "/"
+          addSlashes list = builderToText $
+                              encodePathSegments (fmap T.toStrict list)
 
 showParam :: ChunkType -> T.Text -> RouteParamList -> Either UrlBuildError T.Text
 showParam chunkType k l = 

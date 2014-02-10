@@ -73,6 +73,7 @@ module Web.Wheb
   -- *** Add raw routes
   , addRoute
   , addRoutes
+  , catchAll
   -- ** Middlewares
   , addWAIMiddleware
   , addWhebMiddleware
