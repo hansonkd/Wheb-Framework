@@ -30,6 +30,7 @@ module Web.Wheb.WhebT
   , getRouteParam
   , getRoute
   , getRoute'
+  , getRawRoute
   
   -- * Request reading
   , getRequest
@@ -155,11 +156,17 @@ getRoute t l = do
 getRoute' :: Monad m => T.Text -> 
              RouteParamList -> 
              WhebT g s m (Either UrlBuildError T.Text)
-getRoute' n l = WhebT $ liftM f ask
-    where findRoute (Route {..}) = fromMaybe False (fmap (==n) routeName)
-          buildRoute (Just (Route {..})) = generateUrl routeParser l
+getRoute' n l = liftM buildRoute (getRawRoute n l)
+    where buildRoute (Just (Route {..})) = generateUrl routeParser l
           buildRoute (Nothing)           = Left UrlNameNotFound
-          f = (buildRoute . (find findRoute) . appRoutes . globalSettings)
+
+-- | Generate the raw route
+getRawRoute :: Monad m => T.Text -> 
+             RouteParamList -> 
+             WhebT g s m (Maybe (Route g s m))
+getRawRoute n l = WhebT $ liftM f ask  
+    where findRoute (Route {..}) = fromMaybe False (fmap (==n) routeName)  
+          f = ((find findRoute) . appRoutes . globalSettings)    
 
 -- * Request reading
 

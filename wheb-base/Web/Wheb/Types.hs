@@ -137,6 +137,9 @@ type  MethodMatch = StdMethod -> Bool
 
 data ParsedChunk = forall a. (Typeable a, Show a) => MkChunk a
 
+instance Show ParsedChunk where
+  show (MkChunk a) = show a
+
 data UrlBuildError = NoParam | ParamTypeMismatch T.Text | UrlNameNotFound
      deriving (Show) 
 

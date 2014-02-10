@@ -18,10 +18,14 @@ module Web.Wheb.Routes
   , matchUrl
   , generateUrl
   , findUrlMatch
+
+  -- * Utilities
+  , testUrlParser
   ) where
   
 import qualified Data.Text.Lazy as T
 import           Data.Text.Lazy.Read
+import           Data.Maybe (isJust)
 import           Data.Typeable
 import           Network.HTTP.Types.Method
 import           Network.HTTP.Types.URI
@@ -110,6 +114,16 @@ findUrlMatch rmtd path ((Route _ methodMatch (UrlParser f _) h):rs)
                         Just params -> Just (h, params)
                         Nothing -> findUrlMatch rmtd path rs
 
+-- | Test a parser to make sure it can match what it produces and vice versa
+testUrlParser :: UrlParser -> RouteParamList -> Bool
+testUrlParser up rpl = 
+  case generateUrl up rpl of
+      Left _ -> False
+      Right t -> case (matchUrl (fmap T.fromStrict $ decodeUrl t) up) of
+          Just params -> either (const False) (==t) (generateUrl up params)
+          Nothing -> False
+  where decodeUrl = decodePathSegments . lazyTextToSBS
+
 -- | Implementation for a 'UrlParser' using pseudo-typed URL composition.
 --   Pattern will match path when the pattern is as long as the path, matching
 --   on a trailing slash. If the path is longer or shorter than the pattern, it
@@ -138,7 +152,7 @@ matchPat chunks t  = parse t chunks []
 buildPat :: [UrlPat] -> RouteParamList -> Either UrlBuildError T.Text
 buildPat pats params = fmap addSlashes $ build [] pats
     where build acc [] = Right acc
-          build acc ((Chunk c):[]) | T.null c = build (acc <> [c]) []
+          build acc ((Chunk c):[]) = build (acc <> [c]) []
           build acc ((Chunk c):cs) | T.null c = build acc cs
                                    | otherwise = build (acc <> [c]) cs
           build acc ((Composed xs):cs)     = build acc (xs <> cs)

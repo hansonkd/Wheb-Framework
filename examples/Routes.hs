@@ -1,9 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import           Control.Monad (forM_)
-import           Web.Wheb
+import           Control.Monad (forM_, forM)
+
+import           Data.Maybe (fromJust, isJust)
 import           Data.Text.Lazy (Text)
 import           Data.Text.Lazy as T
+import           Network.HTTP.Types.URI
+
+import           Web.Wheb
+import           Web.Wheb.WhebT (getRawRoute)
+import           Web.Wheb.Routes (matchUrl, testUrlParser)
+import           Web.Wheb.Utils (lazyTextToSBS)
 
 myHandler :: Text -> MinHandler
 myHandler = html
@@ -14,6 +21,7 @@ main = do
     
     -- rootPat is the same as \"\"
     addGET "home" rootPat $ myHandler "Homepage"
+    addGET "simple" "simple" $ myHandler "Simple"
     addGET "int" (rootPat </> (grabInt "pk")) $ myHandler "Int base"
     addGET "txt" ("" </> (grabText "slug")) $ myHandler "Text base"
     -- Will with or without trailing slash.
@@ -31,13 +39,19 @@ main = do
 
   debugHandler opts $ do
     liftIO $ putStrLn "Testing routes..."
-    forM_ [ ("home", [])
-          , ("int", [("pk", MkChunk (3 :: Int))])
-          , ("txt", [("slug", MkChunk ("hey" :: Text))])
-          , ("blog_int", [("pk", MkChunk (3 :: Int))])
-          , ("blog_txt", [("slug", MkChunk ("hey" :: Text))])
-          , ("blog_txt", [("slug", MkChunk ("*9(" :: Text))])
-          , ("long", [])
-          , ("encode", []) ]
-          (\(rn, p) -> (liftIO . print) =<< getRoute rn p)
+    forM_ routeList (\(rn, p) -> (liftIO . print) =<< getRoute rn p)
+    rs <- forM routeList (\(rn, p) -> do
+                                     (Just r) <- getRawRoute rn p
+                                     return $ testUrlParser (routeParser r) p)
+    liftIO $ print rs
+
   runWhebServer opts
+  where routeList =   [ ("home", [])
+                      , ("simple", [])
+                      , ("int", [("pk", MkChunk (3 :: Int))])
+                      , ("txt", [("slug", MkChunk ("hey" :: Text))])
+                      , ("blog_int", [("pk", MkChunk (3 :: Int))])
+                      , ("blog_txt", [("slug", MkChunk ("hey" :: Text))])
+                      , ("blog_txt", [("slug", MkChunk ("*9(" :: Text))])
+                      , ("long", [])
+                      , ("encode", []) ]
