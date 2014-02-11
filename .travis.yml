@@ -1,6 +1,6 @@
 language: haskell
 ghc: 7.
 install:
-  - cabal install wheb-base/Wheb.cabal
+  - cabal install wheb-base/Wheb.cabal --enable-tests
 script:
   - cd wheb-base && cabal configure --enable-tests && cabal build && cabal test
