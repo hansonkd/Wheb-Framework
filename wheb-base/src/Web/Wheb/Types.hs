@@ -166,9 +166,9 @@ data UrlPat = Chunk T.Text
                 , chunkType :: ChunkType }
 
 instance Show UrlPat where
-  show (Chunk a) = "[Chunk " ++ (T.unpack a) ++ "]"
+  show (Chunk a) = "(Chunk " ++ (T.unpack a) ++ ")"
   show (Composed a) = intercalate "/" $ fmap show a
-  show (FuncChunk pn _ ct) = "[FuncChunk " ++ (T.unpack pn) ++ " | " ++ (show ct) ++ "]"
+  show (FuncChunk pn _ ct) = "(FuncChunk " ++ (T.unpack pn) ++ " | " ++ (show ct) ++ ")"
 
 instance IsString UrlPat where
   fromString = Chunk . T.pack

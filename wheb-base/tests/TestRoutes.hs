@@ -8,9 +8,10 @@ import Web.Wheb
 import Web.Wheb.Routes (testUrlParser)
 
 data UrlPair = UrlPair UrlPat RouteParamList
-data UrlChunk = UrlChunk {unwrapChunk :: UrlPat}
 
-generateParamName = suchThat (listOf1 $ elements ['a'..'Z']) (\n -> (length n) > 5)
+-- | Produce semi-clean strings of reasonable length to prevent collision.
+genString :: Gen String
+genString = suchThat (listOf1 $ elements ['a'..'Z']) (\n -> (length n) > 5)
 
 instance Show UrlPair where
     show (UrlPair up pl) = "UrlParser | " ++ (show up)
@@ -19,9 +20,9 @@ instance Arbitrary UrlPat where
     arbitrary = (sized $ flip vectorOf cs) >>= (return . Composed)
      where cs :: Gen UrlPat
            cs = oneof 
-            [ generateParamName >>= (return . grabInt . T.pack)
-            , generateParamName >>= (return . grabText . T.pack)
-            , generateParamName >>= (return . pS) ]
+            [ genString >>= (return . grabInt . T.pack)
+            , genString >>= (return . grabText . T.pack)
+            , genString >>= (return . pS) ]
 
 instance Arbitrary UrlPair where
     arbitrary = do
