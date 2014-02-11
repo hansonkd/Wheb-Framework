@@ -1,4 +1,0 @@
-ghc: 7.6
-
-script:
-  - cd wheb-base && cabal install && cabal configure --enable-tests && cabal build && cabal test
