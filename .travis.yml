@@ -2,5 +2,15 @@ language: haskell
 ghc: 7.
 install:
   - cabal install wheb-base/Wheb.cabal --enable-tests
+  - cabal install plugins/wheb-mongo/wheb-mongo.cabal --enable-tests
+  - cabal install blaze-html
 script:
   - cd wheb-base && cabal configure --enable-tests && cabal build && cabal test
+  - cd ..
+  - ghc -c examples/Blaze.hs
+  - ghc -c examples/File.hs
+  - ghc -c examples/Main.hs
+  - ghc -c examples/Minimal.hs
+  - ghc -c examples/Mongo.hs
+  - ghc -c examples/Routes.hs
+  - ghc -c examples/Stateful.hs
