@@ -10,7 +10,7 @@ category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
 description:         
-  Wheb's a framework for building robust high concurrency web applications simply and effectively.
+  Wheb's a framework for building robust, high-concurrency web applications simply and effectively.
   .
   * The core datatype will let you build anything from a read-only server to a fully interactive web application with basic Haskell.
   .
