@@ -53,10 +53,10 @@ description:
   >      addGET "about" ("about" </> "something") $ html (pack "<html><body><h1>About!</h1></body></html>")
   >   runWhebServer opts
   .
-  /Bigger example (examples/Stateful.hs):/
+  /Bigger example (Stateful.hs):/
   . 
   Wheb makes it easy to share a global context and handle requests statefully. The Wheb monad
-  is both a Reader and a State Monad allowing you to seperate threadsafe resources.
+  is both a Reader and a State Monad allowing you to seperate thread-safe resources.
   .
   Below is an example of site that naively counts the non-unique hits across all pages. MyApp
   is our Reader's type and MyHandlerData is our State's type. MyApp is shared across requests

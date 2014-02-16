@@ -15,7 +15,7 @@ Wheb's a framework for building robust high concurrency web applications simply 
 * Fully database and template agnostic
 * Easy handler debugging.
 * Middleware
-* Fast. Its deploys on warp.
+* Fast. It deploys on warp.
 
 ### Plugins
 
