@@ -37,7 +37,7 @@ import           Data.ByteString (ByteString)
 --
 --   * g -> The global confirgured context (Read-only data shared between threads)
 -- 
---   * s -> Handler state initailized at the start of each request using Default
+--   * s -> Handler state for each request.
 --
 --   * m -> Monad we are transforming
 newtype WhebT g s m a = WhebT 
