@@ -5,7 +5,7 @@ install:
   - cabal install plugins/wheb-mongo/wheb-mongo.cabal --enable-tests
   - cabal install blaze-html
 script:
-  - cd wheb-base && cabal configure --enable-tests && cabal build && cabal test
+  - cd wheb-base && cabal configure -v0 --enable-tests && cabal build -v0 && cabal test
   - cd ..
   - ghc -c examples/Blaze.hs
   - ghc -c examples/File.hs
