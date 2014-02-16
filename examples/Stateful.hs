@@ -12,8 +12,10 @@ data MyHandlerData = MyHandlerData Int
 counterMw :: MonadIO m => WhebMiddleware MyApp MyHandlerData m
 counterMw = do
   (MyApp _ ctr) <- getApp
-  number <- liftIO $ readTVarIO ctr
-  liftIO $ atomically $ writeTVar ctr (succ number)
+  number <- liftIO $ atomically $ do
+              num <- readTVar ctr
+              writeTVar ctr (succ num)
+              return num
   putHandlerState (MyHandlerData number)
   return Nothing
 
@@ -22,7 +24,7 @@ homePage = do
   (MyApp appName _)   <- getApp
   (MyHandlerData num) <- getHandlerState
   html $ ("<h1>Welcome to" <> appName <> 
-          "</h1><h2>You are visitor #" <> (pack $ show num) <> "</h2>")
+          "</h1><h2>You are visitor #" <> (spack num) <> "</h2>")
 
 main :: IO ()
 main = do

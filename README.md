@@ -1,7 +1,7 @@
 Wheb
 ======
 
-The Batteries-Included Haskell WAI Framework
+The Frictionless Haskell WAI Framework
 
 Objective
 ---------

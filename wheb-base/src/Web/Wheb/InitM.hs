@@ -89,11 +89,9 @@ addSetting' k v = addSettings $ M.fromList [(k, MkVal v)]
 addSettings :: CSettings -> InitM g s m ()
 addSettings settings = InitM $ tell $ mempty { initSettings = settings }
 
--- | Reads a file line by line and splits keys and values by \":\"
---   Uses default Text.Read to try to match 'Int', 'Bool' or 'Float' and will add
+-- | Reads a file line by line and splits keys and values by \":\".
+--   Uses default "Text.Read" to try to match 'Int', 'Bool' or 'Float' and will add
 --   specific typed settings for those.
--- Example file:
--- > port
 readSettingsFile :: FilePath -> InitM g s m ()
 readSettingsFile fp = (liftIO $ liftM T.lines (T.readFile fp)) >>= (mapM_ parseLines)
   where parseLines line = 

@@ -8,4 +8,4 @@
   * Change InitM's result type
   * Add builder helper function
   * URL encoding
-  * added setting''
+  * added getSetting''
