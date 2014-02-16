@@ -61,7 +61,7 @@ Since a server with empty options isn't very useful, lets make a handler.
 
 Our handler will have the type `MinHandler` which is a type synonym to `WhebHandler () () IO`. We will discuss what the longer signature means later. 
 
-There are a couple of conveience functions to set content-type and return content, `text`, `html`, `builder` and `file`. We will use the basic `text` which sets the content-type to `text/plain`.
+There are a couple of convenience functions to set content-type and return content, `text`, `html`, `builder` and `file`. We will use the basic `text` which sets the content-type to `text/plain`.
 
 ``` haskell
 handleHome :: MinHandler
@@ -186,4 +186,4 @@ handleHome = do
 
 ### Handling changing data between requests.
 
-Because the state changes on the handler state don't affect other requests, in order to properly handle changing data between threads, you should use the STM library. An example of this can be found in `Stateful.hs` example.
+Because the state changes on the handler state don't affect other requests, in order to properly handle changing data between threads, you should use the STM library. One way of doing this can be found in `Stateful.hs` example, where we count page hits.
