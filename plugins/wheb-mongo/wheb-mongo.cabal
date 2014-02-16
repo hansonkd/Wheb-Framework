@@ -1,0 +1,24 @@
+name:                wheb-mongo
+version:             0.0.1.0
+synopsis:            MongoDB plugin for Wheb
+homepage:            https://github.com/hansonkd/Wheb-Framework
+license:             BSD3
+license-file:        LICENSE
+author:              Kyle Hanson
+maintainer:          hanooter@gmail.com
+category:            Database
+build-type:          Simple
+cabal-version:       >=1.8
+description:         
+  Wheb plugin for MongoDB.
+  .
+  * Implements SessionBackend and AuthBackend instances using Mongo.
+  .
+  * Creates simple interface for arbitrary MongoDB actions using <http://hackage.haskell.org/package/mongoDB mongoDB> 
+  .
+  For a complete example, see the examples folder at <https://github.com/hansonkd/Wheb-Framework/tree/master/examples github>
+
+library
+  exposed-modules:     Web.Wheb.Plugins.Mongo
+  build-depends:       base ==4.6.*, text ==0.11.*, mongoDB ==1.4.*, Wheb ==0.1.*, bson ==0.2.2, mtl == 2.1.*
+  

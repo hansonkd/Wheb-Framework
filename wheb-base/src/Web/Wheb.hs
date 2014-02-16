@@ -10,7 +10,7 @@ import           Data.Text.Lazy (pack)
 main :: IO ()
 main = do
   opts <- generateOptions $ addGET (pack \".\") rootPat $ (text (pack \"Hi!\"))
-  runWhebServer (opts :: MinOpts)
+  runWhebServer opts
 @
 
 -}
@@ -22,16 +22,17 @@ module Web.Wheb
     getApp
   , getWithApp
   -- *** StateT
-  , getReqState
-  , putReqState
-  , modifyReqState
-  , modifyReqState'
+  , getHandlerState
+  , putHandlerState
+  , modifyHandlerState
+  , modifyHandlerState'
   
   -- ** Dealing with responses
   -- *** Creating a 'HandlerResponse'
   , html
   , text
   , file
+  , builder
   -- *** Setting a header
   , setHeader
   , setRawHeader
@@ -39,6 +40,7 @@ module Web.Wheb
   -- * Settings
   , getSetting
   , getSetting'
+  , getSetting''
   , getSettings
   
   -- * Routes
@@ -67,9 +69,12 @@ module Web.Wheb
   -- *** Named routes convenience functions
   , addGET
   , addPOST
+  , addPUT
+  , addDELETE
   -- *** Add raw routes
   , addRoute
   , addRoutes
+  , catchAll
   -- ** Middlewares
   , addWAIMiddleware
   , addWhebMiddleware
@@ -77,10 +82,12 @@ module Web.Wheb
   , addSetting
   , addSetting'
   , addSettings
-  
+  , readSettingsFile
+  -- ** Cleanup
+  , addCleanupHook
   -- * Running
   , generateOptions
-  
+  , genMinOpts
   -- * Routes
   -- ** URL Patterns
   , compilePat
@@ -92,13 +99,17 @@ module Web.Wheb
   , grabText
   , pT
   , pS
+  -- * Utilities
+  , spack
+  , MonadIO(..)
   -- * Types
   , module Web.Wheb.Types
-  , Default (..)
   ) where
+
 
 import Web.Wheb.WhebT
 import Web.Wheb.InitM
 import Web.Wheb.Types
 import Web.Wheb.Routes
-import Data.Default
+import Web.Wheb.Utils
+import Control.Monad.IO.Class

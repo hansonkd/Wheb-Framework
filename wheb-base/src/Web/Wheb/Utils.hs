@@ -19,6 +19,11 @@ import           Web.Wheb.Types
 
 lazyTextToSBS = TS.encodeUtf8 . T.toStrict
 sbsToLazyText = T.fromStrict . TS.decodeUtf8
+builderToText = T.decodeUtf8 . toLazyByteString
+
+-- | Show and pack into 'Text'
+spack :: Show a => a -> T.Text
+spack = T.pack . show
 
 -- | See a 'HandlerResponse's as 'Text'
 showResponseBody :: HandlerResponse -> IO T.Text

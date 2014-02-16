@@ -1,0 +1,151 @@
+name:                Wheb
+version:             0.1.0.0
+synopsis:            The frictionless WAI Framework
+license:             BSD3
+license-file:        LICENSE
+author:              Kyle Hanson
+homepage:            https://github.com/hansonkd/Wheb-Framework
+maintainer:          hanooter@gmail.com
+category:            Web
+build-type:          Simple
+cabal-version:       >=1.10
+description:         
+  Wheb's a framework for building robust high concurrency web applications simply and effectively.
+  .
+  * The core datatype will let you build anything from a read-only server to a fully interactive web application with basic Haskell.
+  .
+  * Minimal boilerplate to start your application.
+  .
+  * Named routes and URL generation (though it was a trade-off between named and type-safe urls).
+  .
+  * Easy to use for REST APIs
+  .
+  * Fully database and template agnostic
+  .
+  * Easy handler debugging.
+  .
+  * Middleware
+  .
+  * Fast. It deploys on warp.
+  .
+  /Plugins:/
+  .
+  Wheb makes it easy to write plugins. Plugins can add routes, middlware, settings and even handle resource cleanup on server shutdown.
+  Named routes allow plugins to dynamically generate their routes at runtime based on settings.
+  .
+  Examples of plugins:
+  .
+  * Sessions
+  .
+  * Auth
+  .
+  * <http://hackage.haskell.org/package/wheb-mongo Wheb-Mongo>
+  .
+  /Wheb in action:/
+  .
+  > import           Web.Wheb
+  > import           Data.Text.Lazy (pack)
+  >
+  > main :: IO ()
+  > main = do
+  >   opts <- genMinOpts $ do
+  >      addGET "home" rootPat $ (text (pack "Hi!"))
+  >      addGET "about" ("about" </> "something") $ html (pack "<html><body><h1>About!</h1></body></html>")
+  >   runWhebServer opts
+  .
+  /Bigger example (examples/Stateful.hs):/
+  . 
+  Wheb makes it easy to share a global context and handle requests statefully. The Wheb monad
+  is both a Reader and a State Monad allowing you to seperate threadsafe resources.
+  .
+  Below is an example of site that naively counts the non-unique hits across all pages. MyApp
+  is our Reader's type and MyHandlerData is our State's type. MyApp is shared across requests
+  while MyHandlerData is thread specific with a starting state given in options. We have a middleware
+  that intercepts the request, safely increments the shared resource TVar and sets our MyHandlerData 
+  to the correct count before it reaches our handler. We use a TVar in the Global context 
+  because any state changes to the handler state will not affect other requests.
+  .
+  >  import           Control.Concurrent.STM
+  >  import           Control.Monad.IO.Class
+  >  import           Data.Monoid
+  >  import           Data.Text.Lazy (Text, pack)
+  >  import           Web.Wheb
+  >
+  >  data MyApp = MyApp Text (TVar Int)
+  >  data MyHandlerData = MyHandlerData Int
+  >
+  >  counterMw :: MonadIO m => WhebMiddleware MyApp MyHandlerData m
+  >  counterMw = do
+  >    (MyApp _ ctr) <- getApp
+  >    number <- liftIO $ atomically $ do
+  >            num <- readTVar ctr
+  >            writeTVar ctr (succ num)
+  >            return num
+  >    putHandlerState (MyHandlerData number)
+  >    return Nothing
+  >
+  >  homePage :: WhebHandler MyApp MyHandlerData
+  >  homePage = do
+  >    (MyApp appName _)   <- getApp
+  >    (MyHandlerData num) <- getHandlerState
+  >    html $ ("<h1>Welcome to" <> appName <> 
+  >            "</h1><h2>You are visitor #" <> (spack num) <> "</h2>")
+  >
+  >  main :: IO ()
+  >  main = do
+  >    opts <- generateOptions $ do
+  >              startingCounter <- liftIO $ newTVarIO 0
+  >              addWhebMiddleware counterMw
+  >              addGET (pack ".") rootPat $ homePage
+  >              return $ (MyApp "AwesomeApp" startingCounter, MyHandlerData 0)
+  >    runWhebServer opts
+
+    
+source-repository head
+  type:     git
+  location: git://github.com/hansonkd/Wheb-Framework.git
+
+library
+  default-language: Haskell2010
+  exposed-modules:     Web.Wheb, Web.Wheb.Cookie, Web.Wheb.InitM, Web.Wheb.Internal, Web.Wheb.Routes, Web.Wheb.Types, Web.Wheb.Utils, Web.Wheb.WhebT, Web.Wheb.Plugins.Auth, Web.Wheb.Plugins.Session, Web.Wheb.Plugins.Debug.MemoryBackend
+  
+  build-depends:       base ==4.6.*, 
+                       text ==0.11.*, 
+                       transformers ==0.3.*, 
+                       wai-extra ==2.0.*, 
+                       time ==1.4.*, 
+                       bytestring ==0.10.*, 
+                       blaze-builder ==0.3.*, 
+                       cookie ==0.4.*, 
+                       mtl ==2.1.*, 
+                       containers ==0.5.*, 
+                       wai ==2.0.*, 
+                       http-types ==0.8.*, 
+                       warp ==2.0.*, 
+                       conduit ==1.0.*, 
+                       case-insensitive ==1.0.*, 
+                       pwstore-fast ==2.4.*, 
+                       transformers ==0.3.*,
+                       uuid ==1.3.*, 
+                       stm ==2.4.*, 
+                       unix ==2.6.*
+  hs-source-dirs:   src
+  GHC-options: -Wall -fno-warn-orphans
+
+test-suite Main
+  type:            exitcode-stdio-1.0
+  build-depends:   Wheb ==0.1.*,
+                   base ==4.6.*, 
+                   HUnit >= 1.2 && < 2,
+                   QuickCheck >= 2.4,
+                   test-framework >= 0.4.1,
+                   test-framework-quickcheck2,
+                   test-framework-hunit,
+                   text ==0.11.*
+
+  ghc-options:     -Wall -rtsopts
+  hs-source-dirs:  tests
+  default-language: Haskell2010
+  hs-source-dirs:  tests
+  main-is:         Main.hs
+  

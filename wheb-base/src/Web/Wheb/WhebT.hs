@@ -7,10 +7,10 @@ module Web.Wheb.WhebT
     getApp
   , getWithApp
   -- ** StateT
-  , getReqState
-  , putReqState
-  , modifyReqState
-  , modifyReqState'
+  , getHandlerState
+  , putHandlerState
+  , modifyHandlerState
+  , modifyHandlerState'
   
   -- * Responses
   , setHeader
@@ -18,10 +18,12 @@ module Web.Wheb.WhebT
   , html
   , text
   , file
+  , builder
   
   -- * Settings
   , getSetting
   , getSetting'
+  , getSetting''
   , getSettings
   
   -- * Routes
@@ -29,6 +31,7 @@ module Web.Wheb.WhebT
   , getRouteParam
   , getRoute
   , getRoute'
+  , getRawRoute
   
   -- * Request reading
   , getRequest
@@ -44,15 +47,19 @@ module Web.Wheb.WhebT
   , runWhebServerT
   , debugHandler
   , debugHandlerT
-  )where
+  ) where
 
+import           Blaze.ByteString.Builder (Builder)
+import           Control.Concurrent
+import           Control.Concurrent.STM
+import           Control.Exception as E
 import           Control.Monad.Error
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.State
+
 import qualified Data.ByteString.Lazy as LBS
 import           Data.CaseInsensitive (mk)
-import           Data.Default
 import qualified Data.Map as M
 import           Data.Maybe (fromMaybe)
 import qualified Data.Text.Lazy as T
@@ -65,6 +72,8 @@ import           Network.HTTP.Types.URI
 import           Network.Wai
 import           Network.Wai.Handler.Warp as W
 import           Network.Wai.Parse
+
+import           System.Posix.Signals (installHandler, Handler(Catch), sigINT, sigTERM)
 
 import           Web.Wheb.Internal
 import           Web.Wheb.Routes
@@ -87,21 +96,21 @@ getWithApp = flip liftM getApp
 
 -- | Get the 's' in @WhebT g s m g@. This is a read and writable state
 -- so you can get and put information in your state. Each request gets its own
--- fresh state generated from "Default"
-getReqState :: Monad m => WhebT g s m s
-getReqState = WhebT $ liftM reqState get
+-- fresh state duplicated from our options 'startingState'
+getHandlerState :: Monad m => WhebT g s m s
+getHandlerState = WhebT $ liftM reqState get
 
-putReqState :: Monad m => s -> WhebT g s m ()
-putReqState s = WhebT $ modify (\is -> is {reqState = s})
+putHandlerState :: Monad m => s -> WhebT g s m ()
+putHandlerState s = WhebT $ modify (\is -> is {reqState = s})
 
-modifyReqState :: Monad m => (s -> s) -> WhebT g s m s
-modifyReqState f = do
-    s <- liftM f getReqState
-    putReqState s
+modifyHandlerState :: Monad m => (s -> s) -> WhebT g s m s
+modifyHandlerState f = do
+    s <- liftM f getHandlerState
+    putHandlerState s
     return s
 
-modifyReqState' :: Monad m => (s -> s) -> WhebT g s m ()
-modifyReqState' f = modifyReqState f >> (return ())
+modifyHandlerState' :: Monad m => (s -> s) -> WhebT g s m ()
+modifyHandlerState' f = modifyHandlerState f >> (return ())
 
 -- * Settings
 
@@ -115,6 +124,10 @@ getSetting' k = liftM (\cs -> (M.lookup k cs) >>= unwrap) getSettings
     where unwrap :: Typeable a => SettingsValue -> Maybe a
           unwrap (MkVal a) = cast a
 
+-- | Get a setting or a default
+getSetting'' :: (Monad m, Typeable a) => T.Text -> a -> WhebT g s m a
+getSetting'' k d = liftM (fromMaybe d) (getSetting' k)
+
 -- | Get all settings.
 getSettings :: Monad m => WhebT g s m CSettings
 getSettings = WhebT $ liftM (runTimeSettings . globalSettings) ask
@@ -126,8 +139,14 @@ getRouteParams :: Monad m => WhebT g s m RouteParamList
 getRouteParams = WhebT $ liftM routeParams ask
 
 -- | Cast a route param into its type.
-getRouteParam :: (Typeable a, Monad m) => T.Text -> WhebT g s m (Maybe a)
-getRouteParam t = liftM (getParam t) getRouteParams
+getRouteParam :: (Typeable a, Monad m) => T.Text -> WhebT g s m a
+getRouteParam t = do
+  p <- getRouteParam' t
+  maybe (throwError RouteParamDoesNotExist) return p
+
+-- | Cast a route param into its type.
+getRouteParam' :: (Typeable a, Monad m) => T.Text -> WhebT g s m (Maybe a)
+getRouteParam' t = liftM (getParam t) getRouteParams
 
 -- | Convert 'Either' from 'getRoute'' into an error in the Monad
 getRoute :: Monad m => T.Text -> RouteParamList ->  WhebT g s m T.Text
@@ -141,11 +160,17 @@ getRoute t l = do
 getRoute' :: Monad m => T.Text -> 
              RouteParamList -> 
              WhebT g s m (Either UrlBuildError T.Text)
-getRoute' n l = WhebT $ liftM f ask
-    where findRoute (Route {..}) = fromMaybe False (fmap (==n) routeName)
-          buildRoute (Just (Route {..})) = generateUrl routeParser l
+getRoute' n l = liftM buildRoute (getRawRoute n l)
+    where buildRoute (Just (Route {..})) = generateUrl routeParser l
           buildRoute (Nothing)           = Left UrlNameNotFound
-          f = (buildRoute . (find findRoute) . appRoutes . globalSettings)
+
+-- | Generate the raw route
+getRawRoute :: Monad m => T.Text -> 
+             RouteParamList -> 
+             WhebT g s m (Maybe (Route g s m))
+getRawRoute n l = WhebT $ liftM f ask  
+    where findRoute (Route {..}) = fromMaybe False (fmap (==n) routeName)  
+          f = ((find findRoute) . appRoutes . globalSettings)    
 
 -- * Request reading
 
@@ -209,10 +234,16 @@ text c = do
     setHeader (T.pack "Content-Type") (T.pack "text/plain") 
     return $ HandlerResponse status200 c
 
+-- | Give content type and Blaze Builder
+builder :: Monad m => T.Text -> Builder -> WhebHandlerT g s m
+builder c b = do
+    setHeader (T.pack "Content-Type") c 
+    return $ HandlerResponse status200 b
+    
 -- * Running a Wheb Application
 
 -- | Running a Handler with a custom Transformer
-debugHandlerT :: (Default s) => WhebOptions g s m ->
+debugHandlerT :: WhebOptions g s m ->
              (m (Either WhebError a) -> IO (Either WhebError a)) ->
              Request ->
              WhebT g s m a ->
@@ -222,25 +253,50 @@ debugHandlerT opts@(WhebOptions {..}) runIO r h =
     where baseData = HandlerData startingCtx r ([], []) [] opts
 
 -- | Convenience wrapper for 'debugHandlerT' function in 'IO'
-debugHandler :: (Default s) => WhebOptions g s IO -> 
+debugHandler :: WhebOptions g s IO -> 
               WhebT g s IO a ->
               IO (Either WhebError a)
 debugHandler opts h = debugHandlerT opts id defaultRequest h
 
 -- | Run a server with a function to run your inner Transformer to IO and 
 -- generated options
-runWhebServerT :: (Default s) => 
-                  (m EResponse -> IO EResponse) ->
+runWhebServerT :: (m EResponse -> IO EResponse) ->
                   WhebOptions g s m ->
                   IO ()
 runWhebServerT runIO opts@(WhebOptions {..}) = do
-    putStrLn $ "Now running on port " ++ (show $ W.settingsPort $ warpSettings)
-    runSettings warpSettings $ 
+    putStrLn $ "Now running on port " ++ (show $ port)
+
+    installHandler sigINT catchSig Nothing
+    installHandler sigTERM catchSig Nothing
+
+    forkIO $ runSettings rtSettings $
+        gracefulExit $
         waiStack $ 
         optsToApplication opts runIO
 
+    loop
+    waitForConnections
+    putStrLn $ "Shutting down server..."
+    sequence_ cleanupActions
+
+  where catchSig = (Catch (atomically $ writeTVar shutdownTVar True))
+        loop = do
+          shutDown <- atomically $ readTVar shutdownTVar
+          if shutDown then return () else (threadDelay 100000) >> loop
+        gracefulExit app r = do
+          isExit <- atomically $ readTVar shutdownTVar
+          case isExit of
+              False -> app r
+              True  -> return $ responseLBS serviceUnavailable503 [] LBS.empty
+        waitForConnections = do
+          openConnections <- atomically $ readTVar activeConnections
+          if (openConnections > 0)
+            then waitForConnections
+            else return ()
+        port = fromMaybe 3000 $ 
+          (M.lookup (T.pack "port") runTimeSettings) >>= (\(MkVal m) -> cast m)
+        rtSettings = warpSettings { W.settingsPort = port }
+
 -- | Convenience wrapper for 'runWhebServerT' function in IO
-runWhebServer :: (Default s) => 
-                 (WhebOptions g s IO) ->
-                 IO ()
+runWhebServer :: (WhebOptions g s IO) -> IO ()
 runWhebServer = runWhebServerT id

@@ -40,10 +40,10 @@ class SessionApp a where
   getSessionContainer :: a -> SessionContainer
 
 class SessionBackend c where
-  backendSessionPut :: (SessionApp a, MonadIO m) => Text -> Text -> Text -> c -> WhebT a b m ()
-  backendSessionGet :: (SessionApp a, MonadIO m) => Text -> Text -> c -> WhebT a b m (Maybe Text)
+  backendSessionPut    :: (SessionApp a, MonadIO m) => Text -> Text -> Text -> c -> WhebT a b m ()
+  backendSessionGet    :: (SessionApp a, MonadIO m) => Text -> Text -> c -> WhebT a b m (Maybe Text)
   backendSessionDelete :: (SessionApp a, MonadIO m) => Text -> Text -> c -> WhebT a b m ()
-  backendSessionClear :: (SessionApp a, MonadIO m) => Text -> c -> WhebT a b m ()
+  backendSessionClear  :: (SessionApp a, MonadIO m) => Text -> c -> WhebT a b m ()
 
 runWithContainer :: (SessionApp a, MonadIO m) => (forall r. SessionBackend r => r -> WhebT a s m b) -> WhebT a s m b
 runWithContainer f = do

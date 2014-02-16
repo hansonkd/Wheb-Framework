@@ -6,6 +6,7 @@
 module Web.Wheb.Types where
 
 import           Blaze.ByteString.Builder (Builder, fromLazyByteString)
+import           Control.Concurrent.STM
 import           Control.Applicative
 import           Control.Monad.Error
 import           Control.Monad.Trans
@@ -16,7 +17,7 @@ import           Control.Monad.Writer
 import           Data.Monoid ((<>))
 
 import qualified Data.ByteString.Lazy as LBS
-import           Data.Default
+import           Data.List (intercalate)
 import           Data.Map as M
 import           Data.String (IsString(..))
 import qualified Data.Text.Lazy as T
@@ -36,7 +37,7 @@ import           Data.ByteString (ByteString)
 --
 --   * g -> The global confirgured context (Read-only data shared between threads)
 -- 
---   * s -> Handler state initailized at the start of each request using Default
+--   * s -> Handler state for each request.
 --
 --   * m -> Monad we are transforming
 newtype WhebT g s m a = WhebT 
@@ -82,36 +83,39 @@ data SettingsValue = forall a. (Typeable a) => MkVal a
 data WhebError = Error500 String 
                | Error404
                | Error403
+               | RouteParamDoesNotExist
                | URLError T.Text UrlBuildError
   deriving (Show)
 
 instance Error WhebError where 
     strMsg = Error500
 
-instance Default s => Default (InternalState s) where
-  def = InternalState def def
-
 -- | Monoid to use in InitM's WriterT
 data InitOptions g s m =
   InitOptions { initRoutes      :: [ Route g s m ]
               , initSettings    :: CSettings
               , initWaiMw       :: Middleware
-              , initWhebMw   :: [ WhebMiddleware g s m ] }
+              , initWhebMw      :: [ WhebMiddleware g s m ]
+              , initCleanup     :: [ IO () ] }
 
 instance Monoid (InitOptions g s m) where
-  mappend (InitOptions a1 b1 c1 d1) (InitOptions a2 b2 c2 d2) = 
-      InitOptions (a1 <> a2) (b1 <> b2) (c2 . c1) (d1 <> d2)
-  mempty = InitOptions mempty mempty id mempty
+  mappend (InitOptions a1 b1 c1 d1 e1) (InitOptions a2 b2 c2 d2 e2) = 
+      InitOptions (a1 <> a2) (b1 <> b2) (c2 . c1) (d1 <> d2) (e1 <> e2)
+  mempty = InitOptions mempty mempty id mempty mempty
 
 -- | The main option datatype for Wheb
 data WhebOptions g s m = MonadIO m => 
   WhebOptions { appRoutes           :: [ Route g s m ]
               , runTimeSettings     :: CSettings
               , warpSettings        :: Warp.Settings
-              , startingCtx         :: g
+              , startingCtx         :: g -- ^ Global ctx shared between requests
+              , startingState       :: InternalState s -- ^ Handler state given each request
               , waiStack            :: Middleware
               , whebMiddlewares     :: [ WhebMiddleware g s m ]
-              , defaultErrorHandler :: WhebError -> WhebHandlerT g s m }
+              , defaultErrorHandler :: WhebError -> WhebHandlerT g s m
+              , shutdownTVar       :: TVar Bool
+              , activeConnections   :: TVar Int
+              , cleanupActions      :: [ IO () ] }
 
 type EResponse = Either WhebError Response
 
@@ -123,7 +127,7 @@ type WhebMiddleware g s m = WhebT g s m (Maybe HandlerResponse)
 
 -- | A minimal type for WhebT
 type MinWheb a = WhebT () () IO a
-
+type MinHandler = MinWheb HandlerResponse
 -- | A minimal type for WhebOptions
 type MinOpts = WhebOptions () () IO
 
@@ -133,6 +137,9 @@ type  RouteParamList = [(T.Text, ParsedChunk)]
 type  MethodMatch = StdMethod -> Bool
 
 data ParsedChunk = forall a. (Typeable a, Show a) => MkChunk a
+
+instance Show ParsedChunk where
+  show (MkChunk a) = show a
 
 data UrlBuildError = NoParam | ParamTypeMismatch T.Text | UrlNameNotFound
      deriving (Show) 
@@ -149,6 +156,7 @@ data Route g s m = Route
   , routeHandler :: (WhebHandlerT g s m) }
 
 data ChunkType = IntChunk | TextChunk
+  deriving (Show)
 
 data UrlPat = Chunk T.Text
             | Composed [UrlPat]
@@ -156,6 +164,11 @@ data UrlPat = Chunk T.Text
                 { chunkParamName :: T.Text
                 , chunkFunc :: (T.Text -> Maybe ParsedChunk)
                 , chunkType :: ChunkType }
+
+instance Show UrlPat where
+  show (Chunk a) = "(Chunk " ++ (T.unpack a) ++ ")"
+  show (Composed a) = intercalate "/" $ fmap show a
+  show (FuncChunk pn _ ct) = "(FuncChunk " ++ (T.unpack pn) ++ " | " ++ (show ct) ++ ")"
 
 instance IsString UrlPat where
   fromString = Chunk . T.pack

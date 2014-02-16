@@ -8,7 +8,6 @@ import           Control.Monad.IO.Class
 import qualified Data.Text.Lazy as T
 import           Data.Maybe (fromJust, fromMaybe)
 import           Data.Monoid
-import           Data.Default
 import           Network.Wai.Middleware.RequestLogger
 
 import           Web.Wheb
@@ -35,9 +34,6 @@ instance AuthApp GlobalApp where
 instance AuthState RequestState where
   getAuthUser = curUser
   modifyAuthUser f c = c { curUser = f (curUser c) }
-  
-instance Default RequestState where
-    def = RequestState Nothing
 
 homePage :: WhebHandler GlobalApp RequestState
 homePage = do
@@ -77,8 +73,11 @@ handleRegister = do
     liftIO $ print params
     userName <- liftM (fromMaybe "") $ getPOSTParam "username"
     userPass <- liftM (fromMaybe "") $ getPOSTParam "password"
-    result   <- register userName userPass
+    result   <- register (AuthUser userName) userPass
     html $ "<h1>Register result...</h1>" <> (T.pack $ show result)
+
+handleFAQ :: WhebHandler GlobalApp RequestState
+handleFAQ = file "examples/resources/faq.html" "text/html"
 
 handleLogin :: WhebHandler GlobalApp RequestState
 handleLogin = do
@@ -98,13 +97,16 @@ main = do
   opts <- generateOptions $ do
       -- | Add standard WAI middlware
       addWAIMiddleware logStdoutDev
+
+      -- | Read settings at runtime.
+      readSettingsFile "examples/resources/settings.wb"
       
       -- | Add Auth middlware for current user.
       addWhebMiddleware authMiddleware
       
       -- | Add your application routes...
       addGET "root" rootPat homePage
-      addGET "faq" "faq" $  handleSimple "FAQ"
+      addGET "faq" "faq" $  handleFAQ
       addPOST "post_store" ("post" </> "store") handlePOST
       
       -- | Auth Handlers.
@@ -115,14 +117,14 @@ main = do
       -- | Overloaded URLs
       addGET "blog_int"  ("blog" </> (grabInt "pk")) $ handleSimple "Number"
       addGET  "blog_txt" ("blog" </> (grabText "slug")) $ 
-            (getRouteParam "slug") >>= (handleSimple . fromJust)
+            (getRouteParam "slug") >>= (handleSimple)
       
       -- | Initialize any backends.
       sess <- initSessionMemory
       auth <- initAuthMemory
       
       -- | Return your new global context.
-      return (GlobalApp sess auth)
+      return (GlobalApp sess auth, RequestState Nothing)
   
   -- | Ability to easily run your handlers w/o a server.
   hResult <- debugHandler opts $ handleSimple "Hello from console!"
@@ -140,9 +142,9 @@ main = do
     liftIO $ putStrLn "\n\nUsers auth..."
     (liftIO . print) =<< getCurrentUser
     (liftIO . print) =<< login "Joe" "123"
-    (liftIO . print) =<< register "Joe" "123"
+    (liftIO . print) =<< register (AuthUser "Joe") "123"
     (liftIO . print) =<< login "Joe" "123"
-    (liftIO . print) =<< register "Joe" "123"
+    (liftIO . print) =<< register (AuthUser "Joe") "123"
     (liftIO . print) =<< getCurrentUser
       
   -- | Or run a high speed warp server.

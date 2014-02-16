@@ -9,29 +9,28 @@ import           Web.Wheb
 data MyApp = MyApp Text (TVar Int)
 data MyHandlerData = MyHandlerData Int
 
-instance Default MyHandlerData where
-  def = MyHandlerData 0
-
 counterMw :: MonadIO m => WhebMiddleware MyApp MyHandlerData m
 counterMw = do
   (MyApp _ ctr) <- getApp
-  number <- liftIO $ readTVarIO ctr
-  liftIO $ atomically $ writeTVar ctr (succ number)
-  putReqState (MyHandlerData number)
+  number <- liftIO $ atomically $ do
+              num <- readTVar ctr
+              writeTVar ctr (succ num)
+              return num
+  putHandlerState (MyHandlerData number)
   return Nothing
 
 homePage :: WhebHandler MyApp MyHandlerData
 homePage = do
   (MyApp appName _)   <- getApp
-  (MyHandlerData num) <- getReqState
+  (MyHandlerData num) <- getHandlerState
   html $ ("<h1>Welcome to" <> appName <> 
-          "</h1><h2>You are visitor #" <> (pack $ show num) <> "</h2>")
+          "</h1><h2>You are visitor #" <> (spack num) <> "</h2>")
 
 main :: IO ()
 main = do
   opts <- generateOptions $ do
             startingCounter <- liftIO $ newTVarIO 0
             addWhebMiddleware counterMw
-            addGET (pack ".") rootPat $ homePage
-            return $ MyApp "AwesomeApp" startingCounter
+            addGET "." rootPat $ homePage
+            return $ (MyApp "AwesomeApp" startingCounter, MyHandlerData 0)
   runWhebServer opts

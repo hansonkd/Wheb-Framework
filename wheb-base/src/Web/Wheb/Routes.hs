@@ -1,45 +1,47 @@
 module Web.Wheb.Routes
   (
-  -- * Convenience constructors
-    rGET
-  , rPOST
-  -- * URL Patterns
-  , compilePat
-  , rootPat
-  
-  -- ** URL building
-  , (</>)
+  -- * URL building
+    (</>)
   , grabInt
   , grabText
   , pT
   , pS
+  -- * Convenience constructors
+  , patRoute
+  -- * URL Patterns
+  , compilePat
+  , rootPat
   
   -- * Working with URLs
   , getParam
   , matchUrl
   , generateUrl
   , findUrlMatch
+
+  -- * Utilities
+  , testUrlParser
   ) where
   
 import qualified Data.Text.Lazy as T
 import           Data.Text.Lazy.Read
+import           Data.Maybe (isJust)
 import           Data.Typeable
 import           Network.HTTP.Types.Method
+import           Network.HTTP.Types.URI
 
 import           Data.Maybe (fromJust)
 import           Data.Monoid ((<>))
 
 import           Web.Wheb.Types
+import           Web.Wheb.Utils
 
--- * Convenience constructors
-
-rGET :: (Maybe T.Text) -> UrlPat -> WhebHandlerT g s m -> Route g s m
-rGET n p = Route n (==GET) (compilePat p)
-
-rPOST :: (Maybe T.Text) -> UrlPat -> WhebHandlerT g s m -> Route g s m
-rPOST n p = Route n (==POST) (compilePat p)
-
--- * URL Patterns
+-- | Build a 'Route' from a 'UrlPat'
+patRoute :: (Maybe T.Text) -> 
+            StdMethod -> 
+            UrlPat -> 
+            WhebHandlerT g s m -> 
+            Route g s m
+patRoute n m p = Route n (==m) (compilePat p)
 
 -- | Convert a 'UrlPat' to a 'UrlParser'
 compilePat :: UrlPat -> UrlParser
@@ -48,16 +50,13 @@ compilePat a = UrlParser (matchPat [a]) (buildPat [a])
 
 -- | Represents root path @/@
 rootPat :: UrlPat
-rootPat = Composed [] 
-
-
+rootPat = Chunk $ T.pack ""
 
 -- | Allows for easier building of URL patterns
 --   This should be the primary URL constructor.
 --   
---  @
---        (\"blog\" '</>' ('grabInt' \"pk\") '</>' \"edit\" '</>' ('grabText' \"verb\"))
---  @
+-- > (\"blog\" '</>' ('grabInt' \"pk\") '</>' \"edit\" '</>' ('grabText' \"verb\"))
+--  
 (</>) :: UrlPat -> UrlPat -> UrlPat
 (Composed a) </> (Composed b) = Composed (a ++ b)
 a </> (Composed b) = Composed (a:b)
@@ -80,8 +79,6 @@ pT = Chunk
 
 pS :: String -> UrlPat
 pS = pT . T.pack
-
-
 
 -- | Lookup and cast a URL parameter to its expected type if it exists.
 getParam :: Typeable a => T.Text -> RouteParamList -> Maybe a
@@ -109,6 +106,16 @@ findUrlMatch rmtd path ((Route _ methodMatch (UrlParser f _) h):rs)
                         Just params -> Just (h, params)
                         Nothing -> findUrlMatch rmtd path rs
 
+-- | Test a parser to make sure it can match what it produces and vice versa
+testUrlParser :: UrlParser -> RouteParamList -> Bool
+testUrlParser up rpl = 
+  case generateUrl up rpl of
+      Left _ -> False
+      Right t -> case (matchUrl (fmap T.fromStrict $ decodeUrl t) up) of
+          Just params -> either (const False) (==t) (generateUrl up params)
+          Nothing -> False
+  where decodeUrl = decodePathSegments . lazyTextToSBS
+
 -- | Implementation for a 'UrlParser' using pseudo-typed URL composition.
 --   Pattern will match path when the pattern is as long as the path, matching
 --   on a trailing slash. If the path is longer or shorter than the pattern, it
@@ -119,13 +126,15 @@ findUrlMatch rmtd path ((Route _ methodMatch (UrlParser f _) h):rs)
 --       But not "/blog/1/", "/blog/1", "blog/foo/edit/", "/blog/9/edit/d",
 --       nor "/blog/9/edit//"
 matchPat :: [UrlPat] ->  [T.Text] -> Maybe RouteParamList
-matchPat chunks t = parse t chunks []
+matchPat chunks [] = matchPat chunks [T.pack ""]
+matchPat chunks t  = parse t chunks []
   where parse [] [] params = Just params
         parse [] c  params = Nothing
-        parse (u:[])  [] params | T.null u  = Just params -- Match only 1 trailing slash
-                                | otherwise = Nothing
+        parse (u:[]) [] params | T.null u  = Just params
+                               | otherwise = Nothing
         parse (u:us) [] _ = Nothing
-        parse (u:us) ((Chunk c):cs) params | u == c    = parse us cs params
+        parse (u:us) ((Chunk c):cs) params | T.null c  = parse (u:us) cs params
+                                           | u == c    = parse us cs params
                                            | otherwise = Nothing
         parse (u:us) ((FuncChunk k f _):cs) params = do
                                             val <- f u
@@ -135,20 +144,23 @@ matchPat chunks t = parse t chunks []
 buildPat :: [UrlPat] -> RouteParamList -> Either UrlBuildError T.Text
 buildPat pats params = fmap addSlashes $ build [] pats
     where build acc [] = Right acc
-          build acc ((Chunk c):cs)         = build (acc <> [c]) cs
+          build acc ((Chunk c):[]) = build (acc <> [c]) []
+          build acc ((Chunk c):cs) | T.null c = build acc cs
+                                   | otherwise = build (acc <> [c]) cs
           build acc ((Composed xs):cs)     = build acc (xs <> cs)
           build acc ((FuncChunk k _ t):cs) = 
               case (showParam t k params) of
                       (Right  v)  -> build (acc <> [v]) cs
                       (Left err)  -> Left err
-          slash = (T.pack "/")
-          addSlashes list = slash <> (T.intercalate slash list) <> slash
+          addSlashes []   = T.pack "/"
+          addSlashes list = builderToText $
+                              encodePathSegments (fmap T.toStrict list)
 
 showParam :: ChunkType -> T.Text -> RouteParamList -> Either UrlBuildError T.Text
 showParam chunkType k l = 
     case (lookup k l) of
         Just (MkChunk v) -> case chunkType of
-            IntChunk -> toEither $ fmap (T.pack . show) (cast v :: Maybe Int)
+            IntChunk -> toEither $ fmap spack (cast v :: Maybe Int)
             TextChunk -> toEither (cast v :: Maybe T.Text)
         Nothing -> Left NoParam
     where toEither v = case v of

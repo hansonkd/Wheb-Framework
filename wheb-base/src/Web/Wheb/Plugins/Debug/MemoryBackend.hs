@@ -16,6 +16,7 @@ data SessionData = SessionData
   { sessionMemory ::  TVar (M.Map Text (M.Map Text Text)) }
 data UserData = UserData
   { userStorage :: TVar (M.Map UserKey PwHash) }
+
 -- | In memory session backend. Session values 
 -- will not persist after server restart.
 instance SessionBackend SessionData where
@@ -49,7 +50,7 @@ instance AuthBackend UserData where
             Just True -> return (Right $ AuthUser $ name)
             Just False -> return (Left InvalidPassword)
             Nothing -> return (Left UserDoesNotExist)
-  backendRegister name pw (UserData tv) = do
+  backendRegister (AuthUser name) pw (UserData tv) = do
         users <- liftIO $ readTVarIO $ tv
         if M.member name users
             then return (Left DuplicateUsername)

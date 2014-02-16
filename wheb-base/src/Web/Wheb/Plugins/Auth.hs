@@ -51,7 +51,7 @@ import Web.Wheb.Plugins.Session
 -- * Auth functions
 
 -- | Register a user
-register :: (AuthApp a, MonadIO m) => UserKey -> Password -> WhebT a b m (Either AuthError AuthUser)
+register :: (AuthApp a, MonadIO m) => AuthUser -> Password -> WhebT a b m (Either AuthError AuthUser)
 register un pw = runWithContainer $ backendRegister un pw
 
 -- | Log a user in
@@ -74,7 +74,7 @@ logout = (runWithContainer backendLogout) >> (authSetUser Nothing)
 -- | Get the current user from the handler state (Needs to be populated first
 --   with 'authMiddleware')
 getCurrentUser :: (AuthState b, MonadIO m) => WhebT a b m (Maybe AuthUser)
-getCurrentUser = liftM getAuthUser getReqState
+getCurrentUser = liftM getAuthUser getHandlerState
 
 -- | Explicitly query a user with the backend. Since this is an IO hit, it is
 --   better to use the middleware and 'getCurrentUser'
@@ -83,8 +83,8 @@ queryCurrentUser = getUserSessionKey >>=
                  getSessionValue' (T.pack "") >>=
                  (\uid -> runWithContainer $ backendGetUser uid)
 
--- | Checks if a user is logged in with 'getCurrentUser' and prevents a handler
---   from running if they aren't
+-- | Checks if a user is logged in with 'getCurrentUser' and throws a 500
+--   if they aren't.
 loginRequired :: (AuthState b, MonadIO m) =>
                  WhebHandlerT a b m ->
                  WhebHandlerT a b m
@@ -126,7 +126,7 @@ class AuthState a where
 -- | Interface for creating Auth backends
 class AuthBackend c where
   backendLogin    :: (AuthApp a, MonadIO m) => SessionApp a => UserKey -> Password -> c -> WhebT a b m (Either AuthError AuthUser)
-  backendRegister :: (AuthApp a, MonadIO m) => UserKey -> Password -> c -> WhebT a b m (Either AuthError AuthUser)
+  backendRegister :: (AuthApp a, MonadIO m) => AuthUser -> Password -> c -> WhebT a b m (Either AuthError AuthUser)
   backendGetUser  :: (AuthApp a, MonadIO m) => UserKey -> c -> WhebT a b m (Maybe AuthUser)
   backendLogout   :: (AuthApp a, MonadIO m) => c -> WhebT a b m ()
   backendLogout _ =  getUserSessionKey >>= deleteSessionValue
@@ -141,7 +141,7 @@ runWithContainer f = do
   f authStore
 
 authSetUser :: (AuthApp a, AuthState b, MonadIO m) => PossibleUser -> WhebT a b m ()
-authSetUser cur = modifyReqState' (modifyAuthUser (const cur))
+authSetUser cur = modifyHandlerState' (modifyAuthUser (const cur))
 
 getUserSessionKey :: (AuthApp a, MonadIO m) => WhebT a b m Text
 getUserSessionKey = return $ T.pack "user-id" -- later read from settings.
