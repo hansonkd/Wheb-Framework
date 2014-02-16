@@ -37,8 +37,8 @@ Reimplimentation of official example below. Use with language extensions /Overer
 >              ["name" =: "Red Sox", "home" =: ["city" =: "Boston", "state" =: "MA"], "league" =: "American"] ]
 >          rest =<< find (select [] "team") {sort = ["home.city" =: 1]}
 >      case mongoRes of
->          Left err -> text $ T.pack $ show err
->          Right teams -> text $ T.intercalate " | " $ map (T.pack . show) teams
+>          Left err -> text $ spack err
+>          Right teams -> text $ T.intercalate " | " $ map spack teams
 >  
 >  main :: IO ()
 >  main = do
@@ -107,15 +107,13 @@ instance AuthBackend MongoContainer where
       return $ maybe Nothing (const $ Just $ AuthUser name) n
   backendLogin name pw mc =  do
     collectionName <- getAuthCollection
-    result <- runWithContainer mc $ do
+    passCheck <- catchResult $ runWithContainer mc $ do
       n <- next =<< find (select ["username" := (toBsonString name)] collectionName)
       return $ maybe Nothing (\doc -> fmap (verifyPw pw . T.fromStrict) (B.lookup "password" doc)) n
-    case result of
-      Left err -> throwError $ Error500 (show err)
-      Right passCheck -> case passCheck of
-            Just True  -> return (Right $ AuthUser $ name)
-            Just False -> return (Left InvalidPassword)
-            Nothing    -> return (Left UserDoesNotExist)
+    case passCheck of
+        Just True  -> return (Right $ AuthUser $ name)
+        Just False -> return (Left InvalidPassword)
+        Nothing    -> return (Left UserDoesNotExist)
   backendRegister user@(AuthUser name) pw mc =  do
     collectionName <- getAuthCollection
     pwHash <- makePwHash pw
@@ -129,10 +127,9 @@ instance AuthBackend MongoContainer where
           return (Right user)
   backendLogout _ =  getUserSessionKey >>= deleteSessionValue
 
-
-
 toBsonString = val . T.toStrict
 
+-- | Push an error from Mongo to a 500 Error.
 catchResult :: Monad m => WhebT g s m (Either Failure b) -> WhebT g s m b
 catchResult m = m >>= either (throwError . Error500 . show) return
 
@@ -140,7 +137,7 @@ mvoid :: Monad m => WhebT g s m (Either Failure b) -> WhebT g s m ()
 mvoid m = catchResult m >> return ()
 
 getSessionCollection :: Monad m => WhebT g s m Collection
-getSessionCollection = liftM T.toStrict (getSetting'' "session-collection" "users")
+getSessionCollection = liftM T.toStrict (getSetting'' "session-collection" "sessions")
 
 getAuthCollection :: Monad m => WhebT g s m Collection
 getAuthCollection = liftM T.toStrict (getSetting'' "auth-collection" "users")

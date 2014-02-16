@@ -97,6 +97,9 @@ main = do
   opts <- generateOptions $ do
       -- | Add standard WAI middlware
       addWAIMiddleware logStdoutDev
+
+      -- | Read settings at runtime.
+      readSettingsFile "examples/resources/settings.wb"
       
       -- | Add Auth middlware for current user.
       addWhebMiddleware authMiddleware

@@ -12,6 +12,10 @@ cabal-version:       >=1.8
 description:         
   Wheb plugin for MongoDB.
   .
+  * Implements SessionBackend and AuthBackend instances using Mongo.
+  .
+  * Creates simple interface for arbitrary MongoDB actions using <http://hackage.haskell.org/package/mongoDB mongoDB> 
+  .
   For a complete example, see the examples folder at <https://github.com/hansonkd/Wheb-Framework/tree/master/examples github>
 
 library

@@ -50,16 +50,13 @@ module Web.Wheb.WhebT
   ) where
 
 import           Blaze.ByteString.Builder (Builder)
-import           Control.Concurrent (forkIO)
+import           Control.Concurrent
 import           Control.Concurrent.STM
+import           Control.Exception as E
 import           Control.Monad.Error
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.State
-
-import Control.Exception as E
-import Control.Concurrent
-import System.Posix.Signals (installHandler, Handler(Catch), sigINT, sigTERM)
 
 import qualified Data.ByteString.Lazy as LBS
 import           Data.CaseInsensitive (mk)
@@ -75,6 +72,8 @@ import           Network.HTTP.Types.URI
 import           Network.Wai
 import           Network.Wai.Handler.Warp as W
 import           Network.Wai.Parse
+
+import           System.Posix.Signals (installHandler, Handler(Catch), sigINT, sigTERM)
 
 import           Web.Wheb.Internal
 import           Web.Wheb.Routes
@@ -265,12 +264,12 @@ runWhebServerT :: (m EResponse -> IO EResponse) ->
                   WhebOptions g s m ->
                   IO ()
 runWhebServerT runIO opts@(WhebOptions {..}) = do
-    putStrLn $ "Now running on port " ++ (show $ W.settingsPort $ warpSettings)
+    putStrLn $ "Now running on port " ++ (show $ port)
 
     installHandler sigINT catchSig Nothing
     installHandler sigTERM catchSig Nothing
 
-    forkIO $ runSettings warpSettings $
+    forkIO $ runSettings rtSettings $
         gracefulExit $
         waiStack $ 
         optsToApplication opts runIO
@@ -294,8 +293,10 @@ runWhebServerT runIO opts@(WhebOptions {..}) = do
           if (openConnections > 0)
             then waitForConnections
             else return ()
+        port = fromMaybe 3000 $ 
+          (M.lookup (T.pack "port") runTimeSettings) >>= (\(MkVal m) -> cast m)
+        rtSettings = warpSettings { W.settingsPort = port }
 
 -- | Convenience wrapper for 'runWhebServerT' function in IO
-runWhebServer :: (WhebOptions g s IO) ->
-                 IO ()
+runWhebServer :: (WhebOptions g s IO) -> IO ()
 runWhebServer = runWhebServerT id

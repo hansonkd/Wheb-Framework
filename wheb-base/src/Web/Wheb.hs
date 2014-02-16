@@ -82,6 +82,7 @@ module Web.Wheb
   , addSetting
   , addSetting'
   , addSettings
+  , readSettingsFile
   -- ** Cleanup
   , addCleanupHook
   -- * Running

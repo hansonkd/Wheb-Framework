@@ -19,6 +19,7 @@ module Web.Wheb.InitM
   , addSetting
   , addSetting'
   , addSettings
+  , readSettingsFile
   -- * Cleanup
   , addCleanupHook
   -- * Running
@@ -29,14 +30,17 @@ module Web.Wheb.InitM
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
 import           Control.Monad.Writer
+import           Data.Char (isSpace)
 import qualified Data.Map as M
 import qualified Data.Text.Lazy as T
+import qualified Data.Text.Lazy.IO as T
 import           Data.Typeable
 import           Network.Wai
 import           Network.Wai.Handler.Warp (defaultSettings
                                           , settingsOnOpen
                                           , settingsOnClose)
 import           Network.HTTP.Types.Method
+import           Text.Read (readMaybe)
 
 import           Web.Wheb.Internal
 import           Web.Wheb.Routes
@@ -84,6 +88,27 @@ addSetting' k v = addSettings $ M.fromList [(k, MkVal v)]
 
 addSettings :: CSettings -> InitM g s m ()
 addSettings settings = InitM $ tell $ mempty { initSettings = settings }
+
+-- | Reads a file line by line and splits keys and values by \":\"
+--   Uses default Text.Read to try to match 'Int', 'Bool' or 'Float' and will add
+--   specific typed settings for those.
+-- Example file:
+-- > port
+readSettingsFile :: FilePath -> InitM g s m ()
+readSettingsFile fp = (liftIO $ liftM T.lines (T.readFile fp)) >>= (mapM_ parseLines)
+  where parseLines line = 
+            case T.splitOn (T.pack ":") line of 
+                a:b:_ -> do
+                    let k = T.strip a
+                        v = T.strip b
+                    maybePutSetting k v (readText :: (T.Text -> Maybe Int))
+                    maybePutSetting k v (readText :: (T.Text -> Maybe Bool))
+                    maybePutSetting k v (readText :: (T.Text -> Maybe Float))
+                    addSetting k v
+                _     -> return ()
+        readText :: Read a => T.Text -> Maybe a
+        readText = readMaybe . T.unpack
+        maybePutSetting k t parse = maybe (return ()) (addSetting' k) (parse t)
 
 -- | IO Actions to run after server has been stopped.
 addCleanupHook :: IO () -> InitM g s m ()

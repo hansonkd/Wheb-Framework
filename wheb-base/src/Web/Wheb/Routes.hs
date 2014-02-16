@@ -1,17 +1,16 @@
 module Web.Wheb.Routes
   (
-  -- * Convenience constructors
-    patRoute
-  -- * URL Patterns
-  , compilePat
-  , rootPat
-  
-  -- ** URL building
-  , (</>)
+  -- * URL building
+    (</>)
   , grabInt
   , grabText
   , pT
   , pS
+  -- * Convenience constructors
+  , patRoute
+  -- * URL Patterns
+  , compilePat
+  , rootPat
   
   -- * Working with URLs
   , getParam
@@ -36,16 +35,13 @@ import           Data.Monoid ((<>))
 import           Web.Wheb.Types
 import           Web.Wheb.Utils
 
--- * Convenience constructors
-
+-- | Build a 'Route' from a 'UrlPat'
 patRoute :: (Maybe T.Text) -> 
             StdMethod -> 
             UrlPat -> 
             WhebHandlerT g s m -> 
             Route g s m
 patRoute n m p = Route n (==m) (compilePat p)
-
--- * URL Patterns
 
 -- | Convert a 'UrlPat' to a 'UrlParser'
 compilePat :: UrlPat -> UrlParser
@@ -55,8 +51,6 @@ compilePat a = UrlParser (matchPat [a]) (buildPat [a])
 -- | Represents root path @/@
 rootPat :: UrlPat
 rootPat = Chunk $ T.pack ""
-
-
 
 -- | Allows for easier building of URL patterns
 --   This should be the primary URL constructor.
@@ -85,8 +79,6 @@ pT = Chunk
 
 pS :: String -> UrlPat
 pS = pT . T.pack
-
-
 
 -- | Lookup and cast a URL parameter to its expected type if it exists.
 getParam :: Typeable a => T.Text -> RouteParamList -> Maybe a
@@ -168,7 +160,7 @@ showParam :: ChunkType -> T.Text -> RouteParamList -> Either UrlBuildError T.Tex
 showParam chunkType k l = 
     case (lookup k l) of
         Just (MkChunk v) -> case chunkType of
-            IntChunk -> toEither $ fmap (T.pack . show) (cast v :: Maybe Int)
+            IntChunk -> toEither $ fmap spack (cast v :: Maybe Int)
             TextChunk -> toEither (cast v :: Maybe T.Text)
         Nothing -> Left NoParam
     where toEither v = case v of
