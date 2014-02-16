@@ -73,7 +73,7 @@ handleRegister = do
     liftIO $ print params
     userName <- liftM (fromMaybe "") $ getPOSTParam "username"
     userPass <- liftM (fromMaybe "") $ getPOSTParam "password"
-    result   <- register userName userPass
+    result   <- register (AuthUser userName) userPass
     html $ "<h1>Register result...</h1>" <> (T.pack $ show result)
 
 handleFAQ :: WhebHandler GlobalApp RequestState
@@ -139,9 +139,9 @@ main = do
     liftIO $ putStrLn "\n\nUsers auth..."
     (liftIO . print) =<< getCurrentUser
     (liftIO . print) =<< login "Joe" "123"
-    (liftIO . print) =<< register "Joe" "123"
+    (liftIO . print) =<< register (AuthUser "Joe") "123"
     (liftIO . print) =<< login "Joe" "123"
-    (liftIO . print) =<< register "Joe" "123"
+    (liftIO . print) =<< register (AuthUser "Joe") "123"
     (liftIO . print) =<< getCurrentUser
       
   -- | Or run a high speed warp server.

@@ -50,7 +50,7 @@ instance AuthBackend UserData where
             Just True -> return (Right $ AuthUser $ name)
             Just False -> return (Left InvalidPassword)
             Nothing -> return (Left UserDoesNotExist)
-  backendRegister name pw (UserData tv) = do
+  backendRegister (AuthUser name) pw (UserData tv) = do
         users <- liftIO $ readTVarIO $ tv
         if M.member name users
             then return (Left DuplicateUsername)

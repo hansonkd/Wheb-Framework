@@ -3,7 +3,9 @@
 0.1.0.0  Kyle Hanson  <hanooter@gmail.com>
 
   * Add graceful shutdown and on-shutdown hooks.
+  * Ability to monitor number of active connections.
   * Remove Default
   * Change InitM's result type
   * Add builder helper function
   * URL encoding
+  * added setting''

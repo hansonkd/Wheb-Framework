@@ -51,7 +51,7 @@ import Web.Wheb.Plugins.Session
 -- * Auth functions
 
 -- | Register a user
-register :: (AuthApp a, MonadIO m) => UserKey -> Password -> WhebT a b m (Either AuthError AuthUser)
+register :: (AuthApp a, MonadIO m) => AuthUser -> Password -> WhebT a b m (Either AuthError AuthUser)
 register un pw = runWithContainer $ backendRegister un pw
 
 -- | Log a user in
@@ -126,7 +126,7 @@ class AuthState a where
 -- | Interface for creating Auth backends
 class AuthBackend c where
   backendLogin    :: (AuthApp a, MonadIO m) => SessionApp a => UserKey -> Password -> c -> WhebT a b m (Either AuthError AuthUser)
-  backendRegister :: (AuthApp a, MonadIO m) => UserKey -> Password -> c -> WhebT a b m (Either AuthError AuthUser)
+  backendRegister :: (AuthApp a, MonadIO m) => AuthUser -> Password -> c -> WhebT a b m (Either AuthError AuthUser)
   backendGetUser  :: (AuthApp a, MonadIO m) => UserKey -> c -> WhebT a b m (Maybe AuthUser)
   backendLogout   :: (AuthApp a, MonadIO m) => c -> WhebT a b m ()
   backendLogout _ =  getUserSessionKey >>= deleteSessionValue

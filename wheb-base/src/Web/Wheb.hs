@@ -40,6 +40,7 @@ module Web.Wheb
   -- * Settings
   , getSetting
   , getSetting'
+  , getSetting''
   , getSettings
   
   -- * Routes

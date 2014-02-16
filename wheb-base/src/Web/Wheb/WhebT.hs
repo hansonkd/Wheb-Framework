@@ -23,6 +23,7 @@ module Web.Wheb.WhebT
   -- * Settings
   , getSetting
   , getSetting'
+  , getSetting''
   , getSettings
   
   -- * Routes
@@ -123,6 +124,10 @@ getSetting' :: (Monad m, Typeable a) => T.Text -> WhebT g s m (Maybe a)
 getSetting' k = liftM (\cs -> (M.lookup k cs) >>= unwrap) getSettings
     where unwrap :: Typeable a => SettingsValue -> Maybe a
           unwrap (MkVal a) = cast a
+
+-- | Get a setting or a default
+getSetting'' :: (Monad m, Typeable a) => T.Text -> a -> WhebT g s m a
+getSetting'' k d = liftM (fromMaybe d) (getSetting' k)
 
 -- | Get all settings.
 getSettings :: Monad m => WhebT g s m CSettings

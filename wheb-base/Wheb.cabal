@@ -115,7 +115,6 @@ test-suite Main
                    test-framework >= 0.4.1,
                    test-framework-quickcheck2,
                    test-framework-hunit,
-                   derive ==2.5.*,
                    text ==0.11.*
 
   ghc-options:     -Wall -rtsopts
