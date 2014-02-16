@@ -4,7 +4,8 @@ The Frictionless Haskell WAI Framework
 
 ### About
 
-Wheb's a framework for building robust high concurrency web applications simply and effectively. Its primary goal is to extend the functionality of the base WAI library as well as provide an easy entry point into Haskell web servers with only knowing "Learn you a Haskell" or other introductory Haskell course.
+
+Wheb's a framework for building robust, high-concurrency web applications simply and effectively. Its primary goal is to extend the functionality of the base WAI library and to provide an easy entry point into Haskell web servers. The only prerequisite is "Learn you a Haskell" or another introductory Haskell course.
 
 ### Features
 
@@ -15,7 +16,7 @@ Wheb's a framework for building robust high concurrency web applications simply 
 * Fully database and template agnostic
 * Easy handler debugging.
 * Middleware
-* Fast. Its deploys on warp.
+* Fast. It deploys on warp.
 
 ### Plugins
 
