@@ -1,295 +1,188 @@
-Wheb
-======
+# Wheb
 
 The Frictionless Haskell WAI Framework
 
-Objective
----------
+### About
 
-The primary goal of the Wheb framework is to extend the functionality of the base WAI library as well as provide an easy entry point into Haskell web servers. Other servers such as Snap and Yesod make use of a number of extensions and Template Haskell. While TH is powerful in allowing you to build compile time type safe urls, it is another hurdle for someone starting out in Haskell to learn before they can get started. While Yesod and others have non-TH versions of their libraries, it just adds fragmentation within the documenation and tutorials about how to effectively use it.
+Wheb's a framework for building robust high concurrency web applications simply and effectively. Its primary goal is to extend the functionality of the base WAI library as well as provide an easy entry point into Haskell web servers with only knowing "Learn you a Haskell" or other introductory Haskell course.
 
-The simplicity of [Scotty](http://hackage.haskell.org/package/scotty) inspired me, so I built the Wheb framework with the explicit goal that Template Haskell not be included in any part of the core server. 
+### Features
 
-Other libraries feature transformers to roll your own Reader and State based applicaiton Monads, but it would be nice if they were built in. Practically every server will have a global read-only context that shares resources between threads and a handler state that can change during request processing. Having these resources built in allows for plugins that can always expect those resources to be there.
+* The core datatype will let you build anything from a read-only server to a fully interactive web application with basic Haskell.
+* Minimal boilerplate to start your application.
+* Named routes and URL generation (though it was a trade-off between named and type-safe urls).
+* Easy to use for REST APIs
+* Fully database and template agnostic
+* Easy handler debugging.
+* Middleware
+* Fast. Its deploys on warp.
 
-Features
---------
+### Plugins
 
-Currently Wheb is still very early in development. I have included some features that I hope will cover most use cases.
+Wheb makes it easy to write plugins. Plugins can add routes, middleware, settings and even handle resource cleanup on server shutdown. Named routes allow plugins to dynamically generate their routes at runtime based on settings. 
+
+Examples of plugins:
+
+* Sessions
+* Auth
+* [Wheb-Mongo](http://hackage.haskell.org/package/wheb-mongo)
 
 
-#### Easy Setup.
-Here is a Wheb server:
+Getting Started
+---------------
 
-```haskell
-import           Web.Wheb
-import           Data.Text.Lazy (pack)
+### Installation:
 
-main :: IO ()
-main = do
-  opts <- generateOptions $ addGET (pack ".") rootPat $ (text (pack "Hi!"))
-  runWhebServer (opts :: MinOpts)
-```
+Install wheb normally with cabal or clone the git repository.
 
-Route handlers can be simple:
+    cabal install wheb
 
-```haskell
-handleSimple :: T.Text -> WhebHandler GlobalApp RequestState
-handleSimple t = html $ "<h1>" <> t <> "</h1>"
-```
+### Program structure.
 
-Or add some complexity...
+Create a new file `Main.hs` with the following contents:
 
-```haskell
-homePage :: WhebHandler GlobalApp RequestState
-homePage = do
-  -- | Keep track of sessions...
-  v <- getSessionValue "has-visted"
-  setSessionValue "has-visted" "True"
-  case v of
-    Just _  -> do
-        url  <- getRoute "blog_txt" [("slug", MkChunk ("hey" :: T.Text))]
-        html $ "<h1>Welcome back!</h1><a href=\"" <> url <> "\">Go to blog</a>"
-    Nothing -> do
-        url  <- getRoute "faq" []
-        html $ "<h1>Hello Stranger!</h1><a href=\"" <> url <> "\">FAQ</a>"
-```
-
-As you scale your code base, the core simplicity remains.
-
-```haskell
-main :: IO ()
-main = do
-  opts <- generateOptions $ do
-      -- | Add standard WAI middlware
-      addWAIMiddleware logStdoutDev
-      
-      -- | Add Auth middlware for current user.
-      addWhebMiddleware authMiddleware
-      
-      -- | Add your application routes...
-      addGET "root" rootPat homePage
-      addGET "faq" "faq" $  handleSimple "FAQ"
-      addPOST "post_store" ("post" </> "store") handlePOST
-      
-      -- | Auth Handlers.
-      addGET  "current"  "current"  handleCurrentUser
-      addPOST "register" "register" handleRegister
-      addPOST "login"    "login"    handleLogin
-      
-      -- | Overloaded URLs
-      addGET "blog_int"  ("blog" </> (grabInt "pk")) $ handleSimple "Number"
-      addGET  "blog_txt" ("blog" </> (grabText "slug")) $ 
-            (getRouteParam "slug") >>= (handleSimple . fromJust)
-            
-      -- | Add sub-init script that is in a sub-app to keep things tidy
-      addBlogPaths
-      
-      -- | Initialize any backends.
-      sess <- initSessionMemory
-      auth <- initAuthMemory
-      
-      -- | Return your new global context.
-      return (GlobalApp sess auth)
-      
-  runWhebServer opts
-```
-#### Global Contexts and State
-
-Wheb has built in support for global contexts and stateful handlers.
-
-Wheb seperates the read-only thread-safe environment resources from a handler specific state. Any modififcations to the state will only be visible in that request. 
-
-```haskell
+``` haskell
 {-# LANGUAGE OverloadedStrings #-}
 
-import           Control.Concurrent.STM
-import           Control.Monad.IO.Class
-import           Data.Monoid
-import           Data.Text.Lazy (Text, pack)
 import           Web.Wheb
-
-data MyApp = MyApp Text (TVar Int)
-data MyHandlerData = MyHandlerData Int
-
-counterMw :: MonadIO m => WhebMiddleware MyApp MyHandlerData m
-counterMw = do
-  (MyApp _ ctr) <- getApp
-  number <- liftIO $ readTVarIO ctr
-  liftIO $ atomically $ writeTVar ctr (succ number)
-  putHandlerState (MyHandlerData number)
-  return Nothing
-
-homePage :: WhebHandler MyApp MyHandlerData
-homePage = do
-  (MyApp appName _)   <- getApp
-  (MyHandlerData num) <- getHandlerState
-  html $ ("<h1>Welcome to" <> appName <> 
-          "</h1><h2>You are visitor #" <> (pack $ show num) <> "</h2>")
 
 main :: IO ()
 main = do
-  opts <- generateOptions $ do
-            startingCounter <- liftIO $ newTVarIO 0
-            addWhebMiddleware counterMw
-            addGET (pack ".") rootPat $ homePage
-            return $ MyApp "AwesomeApp" startingCounter
+  opts <- genMinOpts $ return ()
   runWhebServer opts
 ```
 
-#### URLs
-Wheb uses named dynamically typed URLs. While this means you won't get compile-time checking of your URLs, it gives you some form of type safety beyond simple text. 
+Here, you can see that a Wheb application is essentially two parts, generating the options and running the options in a warp server. We have turned on the OverloadedStrings pragma for convenience, but it is optional (you just need to pack the text yourself.)
 
-```haskell
--- This URL will match /blog/1 but not /blog/foo
->> url = compilePat ("blog" </> (grabInt "pk"))
->> generateUrl url [("pk", MkChunk 3)]
-Right "/blog/3/"
->> generateUrl url [("pk", MkChunk 'A')]
-Left (ParamTypeMismatch "pk")
+Since a server with empty options isn't very useful, lets make a handler.
+
+### Returning content
+
+Our handler will have the type `MinHandler` which is a type synonym to `WhebHandler () () IO`. We will discuss what the longer signature means later. 
+
+There are a couple of conveience functions to set content-type and return content, `text`, `html`, `builder` and `file`. We will use the basic `text` which sets the content-type to `text/plain`.
+
+``` haskell
+handleHome :: MinHandler
+handleHome = text $ "Hello World!"
+```
+
+Now our handler needs a route. We assign routes inside the `InitM` monad which builds our options. Wheb uses named routes and has some convenience functions for adding them to match their HTTP methods: `addGET`, `addPOST`, `addPUT` and `addDELETE`. `rootPat` is a `UrlPat` that matches on the root directory, `/`.
+
+``` haskell
+opts <- genMinOpts $ do
+            addGET "home" rootPat handleHome
+```
+
+Run the server and run cURL to test...
+
+```
+$ curl http://localhost:3000/
+Hello World!
+```
+### Capturing data
+
+Returning static data isn't too interesting, so lets add a new handler and route that echo something back to us. Lets import Monoid's `<>` to make appending easier...
+
+``` haskell
+handleEcho :: MinHandler
+handleEcho = do
+  msg <- getRouteParam "msg"
+  text $ "Msg was: " <> msg
+
 ...
--- Inside the handler which matched on "/blog/10/"
->> pk <- getRouteParam "pk" :: MinWheb (Maybe Int)
->> pk
-Just 10
->> pk <- getRouteParam "pk" :: MinWheb (Maybe Text)
-Nothing
+  
+  opts <- genMinOpts $ do
+            addGET "home" rootPat handleHome
+            addGET "echo" ("echo" </> (grabText "msg")) handleEcho
+```
+Now test:
+
+```
+$ curl http://localhost:3000/echo/hello
+Msg was: hello
 ```
 
-Also, because they are named you can generate one of your URLs based on its name and parameters.
+### Named routes
+
+So what if you wanted to generate the path back to the handleEcho handler? With named routes, it's pretty easy:
 
 ```haskell
-url <- getRoute "blog_txt" [("slug", MkChunk ("hey" :: T.Text))]
+handleHome :: MinHandler
+handleHome = do
+  url <- getRoute "echo" [("msg", MkChunk ("My Awesome message" :: T.Text))] 
+  html $ "<html><body><a href=\"" <> url <> "\">Echo My Awesome message</a></body></html>!"
 ```
 
-#### Middlewares
-Wheb supports WAI and its own WhebMiddlwares. WhebMiddlwares allow you to change the state before it reaches your handler. It also allows you to return a response to intercept requests.
+## Global contexts and Handler State.
 
-The included auth middlware makes use of the ability to change state to set the current user before each Handler.
+Getting URL parameters really isn't interesting either since we aren't really changing anything, so lets add a global context. There are two main parts of a handler's signature `WhebHandlerT g s m`, `g` and `s`. `g` refers to the read-only global context that holds thread-safe resources to share between requests. `s` is the handler state that is request specific.
 
-#### Debugging
+### Global context
 
-You can run handlers and debug directly without a server:
+Lets get started on using the global context. First, we have to define our types and swap out `genMinOpts` for `generateOptions`. `generateOptions` needs to return the global context and handler state in a tuple, which get packed inside our options.
 
-```haskell
+`MyApp` is our global context and `MyState` is our handler state.
+
+``` haskell
+{-# LANGUAGE OverloadedStrings #-}
+
+import           Data.Monoid ((<>))
+import           Web.Wheb
+import qualified Data.Text.Lazy as T
+
+data MyApp = MyApp T.Text
+data MyState = MyState
+type MyHandler = WhebHandler MyApp MyState
+
+handleHome :: MyHandler
+handleHome = text $ "Hello World!"
+
 main :: IO ()
 main = do
   opts <- generateOptions $ do
-      addWhebMiddleware authMiddleware
-      addGET "blog_int"  ("blog" </> (grabInt "pk")) $ handleSimple "Number"
-      sess <- initSessionMemory
-      auth <- initAuthMemory
-      return (GlobalApp sess auth)
+            addGET "home" rootPat handleHome
+            return (MyApp "Tutorial App", MyState)
+  runWhebServer opts
+```
+
+We can rewrite `handleHome` to display the data we used when generating options:
+
+``` haskell
+handleHome :: MyHandler
+handleHome = do
+  (MyApp appname) <- getApp
+  text $ "Welcome to: " <> appname
+```
+
+### Handler state
+
+We can expand `MyState` to take data. Normally, this would be most beneficial when implementing middleware in which every request would have some unique information (such as current logged in user, permissions, etc)...
+
+``` haskell
+data MyState = MyState T.Text deriving (Show)
+```
+
+At the start of each request, each handler state get state is initialized with the data from options and any changes made do not affect other requests.
+
+Here we changed `handleHome` to be stateful.
+
+``` haskell
+handleHome :: MyHandler
+handleHome = do
+  state <- getHandlerState
+  putHandlerState $ MyState "This changed."
+  state2 <- getHandlerState
+  text $ "Start state: " <> (spack state) <> ". End state: " <> (spack state2)
+
+...
   
-  -- | Ability to easily run your handlers w/o a server.
-  hResult <- debugHandler opts $ handleSimple "Hello from console!"
-  either print (\r -> (showResponseBody r) >>= print) hResult
-  
-  -- | Or simply debug some stuff.
-  debugHandler opts $ do
-    liftIO $ putStrLn "Testing..."
-    liftIO $ putStrLn "\n\nRoutes..."
-    (liftIO . print) =<< getRoute' "blog_int" [("pk", MkChunk (3 :: Int))]
-    
-    liftIO $ putStrLn "\n\nUsers auth..."
-    (liftIO . print) =<< getCurrentUser
-    (liftIO . print) =<< register "Joe" "123"
-    (liftIO . print) =<< login "Joe" "123"
-    (liftIO . print) =<< getCurrentUser
-```
-
-#### Plugins
-There are 2 proof-of-concept plugins, Auth and Sessions. Both are implemented to be abstract interfaces for different backends. Included is a Memory backend that destroys values on server shutdown. Other backends to allow data persistence can be easily added.
-
-
-#### Speed
-When Wheb is deployed, it uses warp. This means you get great performance right away with almost zero configuration.
-
-These benchmarks serving a 25kb index page (in examples/resources) were taken on a base configuration linode server...
-
-Wheb results:
-
-```
-kyle@localhost:~$ ab -c 500 -n 10000 http://127.0.0.1:8080/
-
-Server Software:        Warp/2.0.2
-Server Hostname:        127.0.0.1
-Server Port:            8080
-
-Document Path:          /
-Document Length:        23348 bytes
-
-Concurrency Level:      500
-Time taken for tests:   1.668 seconds
-Complete requests:      10000
-Failed requests:        0
-Write errors:           0
-Total transferred:      234940000 bytes
-HTML transferred:       233480000 bytes
-Requests per second:    5995.65 [#/sec] (mean)
-Time per request:       83.394 [ms] (mean)
-Time per request:       0.167 [ms] (mean, across all concurrent requests)
-Transfer rate:          137560.34 [Kbytes/sec] received
-
-Connection Times (ms)
-              min  mean[+/-sd] median   max
-Connect:        0   24  96.6     14    1015
-Processing:    10   43  11.6     42     235
-Waiting:        3   21   9.5     20     224
-Total:         16   66  97.8     58    1065
-
-Percentage of the requests served within a certain time (ms)
-  50%     58
-  66%     62
-  75%     65
-  80%     67
-  90%     73
-  95%     80
-  98%     95
-  99%    103
- 100%   1065 (longest request)
+   opts <- generateOptions $ do
+          addGET "home" rootPat handleHome
+          return (MyApp "Tutorial App", MyState "In the beginning.")
 
 ```
 
-And Nginx serving the same file...
+### Handling changing data between requests.
 
-```
-kyle@localhost:~$ ab -c 500 -n 10000 http://127.0.0.1:80/
-
-Server Software:        nginx/1.4.1
-Server Hostname:        127.0.0.1
-Server Port:            80
-
-Document Path:          /
-Document Length:        23348 bytes
-
-Concurrency Level:      500
-Time taken for tests:   1.600 seconds
-Complete requests:      10000
-Failed requests:        0
-Write errors:           0
-Total transferred:      235920000 bytes
-HTML transferred:       233480000 bytes
-Requests per second:    6248.32 [#/sec] (mean)
-Time per request:       80.022 [ms] (mean)
-Time per request:       0.160 [ms] (mean, across all concurrent requests)
-Transfer rate:          143955.36 [Kbytes/sec] received
-
-Connection Times (ms)
-              min  mean[+/-sd] median   max
-Connect:        4   23   4.7     22      41
-Processing:    17   56   9.9     56      99
-Waiting:        2   22   7.0     21      54
-Total:         35   78   9.4     78     131
-
-Percentage of the requests served within a certain time (ms)
-  50%     78
-  66%     81
-  75%     83
-  80%     84
-  90%     90
-  95%     93
-  98%     96
-  99%    100
- 100%    131 (longest request)
-```
+Because the state changes on the handler state don't affect other requests, in order to properly handle changing data between threads, you should use the STM library. An example of this can be found in `Stateful.hs` example.

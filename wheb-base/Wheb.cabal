@@ -22,10 +22,15 @@ description:
   .
   * Fully database and template agnostic
   .
+  * Easy handler debugging.
+  .
+  * Middleware
+  .
+  * Fast. It deploys on warp.
   .
   /Plugins:/
   .
-  Wheb makes it easy to write plugins. Plugins can add routes, settings and even handle resource cleanup on server shutdown.
+  Wheb makes it easy to write plugins. Plugins can add routes, middlware, settings and even handle resource cleanup on server shutdown.
   Named routes allow plugins to dynamically generate their routes at runtime based on settings.
   .
   Examples of plugins:
@@ -58,9 +63,8 @@ description:
   while MyHandlerData is thread specific with a starting state given in options. We have a middleware
   that intercepts the request, safely increments the shared resource TVar and sets our MyHandlerData 
   to the correct count before it reaches our handler. We use a TVar in the Global context 
-  because any state changes to the handler state will not affect subsequent requests.
+  because any state changes to the handler state will not affect other requests.
   .
-  >
   >  import           Control.Concurrent.STM
   >  import           Control.Monad.IO.Class
   >  import           Data.Monoid
