@@ -7,10 +7,10 @@ module Web.Wheb.WhebT
     getApp
   , getWithApp
   -- ** StateT
-  , getReqState
-  , putReqState
-  , modifyReqState
-  , modifyReqState'
+  , getHandlerState
+  , putHandlerState
+  , modifyHandlerState
+  , modifyHandlerState'
   
   -- * Responses
   , setHeader
@@ -98,20 +98,20 @@ getWithApp = flip liftM getApp
 -- | Get the 's' in @WhebT g s m g@. This is a read and writable state
 -- so you can get and put information in your state. Each request gets its own
 -- fresh state duplicated from our options 'startingState'
-getReqState :: Monad m => WhebT g s m s
-getReqState = WhebT $ liftM reqState get
+getHandlerState :: Monad m => WhebT g s m s
+getHandlerState = WhebT $ liftM reqState get
 
-putReqState :: Monad m => s -> WhebT g s m ()
-putReqState s = WhebT $ modify (\is -> is {reqState = s})
+putHandlerState :: Monad m => s -> WhebT g s m ()
+putHandlerState s = WhebT $ modify (\is -> is {reqState = s})
 
-modifyReqState :: Monad m => (s -> s) -> WhebT g s m s
-modifyReqState f = do
-    s <- liftM f getReqState
-    putReqState s
+modifyHandlerState :: Monad m => (s -> s) -> WhebT g s m s
+modifyHandlerState f = do
+    s <- liftM f getHandlerState
+    putHandlerState s
     return s
 
-modifyReqState' :: Monad m => (s -> s) -> WhebT g s m ()
-modifyReqState' f = modifyReqState f >> (return ())
+modifyHandlerState' :: Monad m => (s -> s) -> WhebT g s m ()
+modifyHandlerState' f = modifyHandlerState f >> (return ())
 
 -- * Settings
 

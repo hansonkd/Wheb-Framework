@@ -117,13 +117,13 @@ counterMw = do
   (MyApp _ ctr) <- getApp
   number <- liftIO $ readTVarIO ctr
   liftIO $ atomically $ writeTVar ctr (succ number)
-  putReqState (MyHandlerData number)
+  putHandlerState (MyHandlerData number)
   return Nothing
 
 homePage :: WhebHandler MyApp MyHandlerData
 homePage = do
   (MyApp appName _)   <- getApp
-  (MyHandlerData num) <- getReqState
+  (MyHandlerData num) <- getHandlerState
   html $ ("<h1>Welcome to" <> appName <> 
           "</h1><h2>You are visitor #" <> (pack $ show num) <> "</h2>")
 

@@ -5,6 +5,14 @@
 {- |
 Basic implementation of MongoDB connection.
 
+Adds default instances for 'SessionApp' and 'AuthApp' for 'MongoApp'.
+
+You can override the collection names for the Auth and Session documents by using 'addSetting' and setting keys for \"session-collection\"
+and \"auth-collection\"
+
+> opts <- generateOptions $ do
+>    addSetting "session-collection" "my-collection"
+
 Reimplimentation of official example below. Use with language extensions /OvererloadedStrings/ & /ExtendedDefaultRules/.
 
 >  import qualified Data.Text.Lazy as T

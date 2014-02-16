@@ -22,10 +22,10 @@ module Web.Wheb
     getApp
   , getWithApp
   -- *** StateT
-  , getReqState
-  , putReqState
-  , modifyReqState
-  , modifyReqState'
+  , getHandlerState
+  , putHandlerState
+  , modifyHandlerState
+  , modifyHandlerState'
   
   -- ** Dealing with responses
   -- *** Creating a 'HandlerResponse'

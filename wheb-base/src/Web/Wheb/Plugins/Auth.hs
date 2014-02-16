@@ -74,7 +74,7 @@ logout = (runWithContainer backendLogout) >> (authSetUser Nothing)
 -- | Get the current user from the handler state (Needs to be populated first
 --   with 'authMiddleware')
 getCurrentUser :: (AuthState b, MonadIO m) => WhebT a b m (Maybe AuthUser)
-getCurrentUser = liftM getAuthUser getReqState
+getCurrentUser = liftM getAuthUser getHandlerState
 
 -- | Explicitly query a user with the backend. Since this is an IO hit, it is
 --   better to use the middleware and 'getCurrentUser'
@@ -141,7 +141,7 @@ runWithContainer f = do
   f authStore
 
 authSetUser :: (AuthApp a, AuthState b, MonadIO m) => PossibleUser -> WhebT a b m ()
-authSetUser cur = modifyReqState' (modifyAuthUser (const cur))
+authSetUser cur = modifyHandlerState' (modifyAuthUser (const cur))
 
 getUserSessionKey :: (AuthApp a, MonadIO m) => WhebT a b m Text
 getUserSessionKey = return $ T.pack "user-id" -- later read from settings.
