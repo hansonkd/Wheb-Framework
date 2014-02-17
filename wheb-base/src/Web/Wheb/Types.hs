@@ -14,11 +14,12 @@ import           Control.Monad.IO.Class
 import           Control.Monad.State
 import           Control.Monad.Reader
 import           Control.Monad.Writer
-import           Data.Monoid ((<>))
 
 import qualified Data.ByteString.Lazy as LBS
+import           Data.Data 
 import           Data.List (intercalate)
 import           Data.Map as M
+import           Data.Monoid ((<>))
 import           Data.String (IsString(..))
 import qualified Data.Text.Lazy as T
 import           Data.Typeable
@@ -85,6 +86,7 @@ data WhebError = Error500 String
                | Error403
                | RouteParamDoesNotExist
                | URLError T.Text UrlBuildError
+               | RenderError T.Text TemplateError
   deriving (Show)
 
 instance Error WhebError where 
@@ -96,12 +98,18 @@ data InitOptions g s m =
               , initSettings    :: CSettings
               , initWaiMw       :: Middleware
               , initWhebMw      :: [ WhebMiddleware g s m ]
-              , initCleanup     :: [ IO () ] }
+              , initCleanup     :: [ IO () ]
+              , initTemplates   :: TemplateMap }
 
 instance Monoid (InitOptions g s m) where
-  mappend (InitOptions a1 b1 c1 d1 e1) (InitOptions a2 b2 c2 d2 e2) = 
-      InitOptions (a1 <> a2) (b1 <> b2) (c2 . c1) (d1 <> d2) (e1 <> e2)
-  mempty = InitOptions mempty mempty id mempty mempty
+  mappend (InitOptions a1 b1 c1 d1 e1 f1) (InitOptions a2 b2 c2 d2 e2 f2) = 
+      InitOptions (a1 <> a2) 
+                  (b1 <> b2)
+                  (c2 . c1)
+                  (d1 <> d2)
+                  (e1 <> e2)
+                  (f1 <> f2)
+  mempty = InitOptions mempty mempty id mempty mempty mempty
 
 -- | The main option datatype for Wheb
 data WhebOptions g s m = MonadIO m => 
@@ -113,13 +121,15 @@ data WhebOptions g s m = MonadIO m =>
               , waiStack            :: Middleware
               , whebMiddlewares     :: [ WhebMiddleware g s m ]
               , defaultErrorHandler :: WhebError -> WhebHandlerT g s m
-              , shutdownTVar       :: TVar Bool
+              , shutdownTVar        :: TVar Bool
               , activeConnections   :: TVar Int
-              , cleanupActions      :: [ IO () ] }
+              , cleanupActions      :: [ IO () ]
+              , templates           :: TemplateMap }
 
 type EResponse = Either WhebError Response
 
 type CSettings = M.Map T.Text SettingsValue
+type TemplateMap = M.Map T.Text WhebTemplate
     
 type WhebHandler g s      = WhebT g s IO HandlerResponse
 type WhebHandlerT g s m   = WhebT g s m HandlerResponse
@@ -130,6 +140,16 @@ type MinWheb a = WhebT () () IO a
 type MinHandler = MinWheb HandlerResponse
 -- | A minimal type for WhebOptions
 type MinOpts = WhebOptions () () IO
+
+-- * Templates
+
+data TemplateError = TemplateNotFound | TemplateGenericError String 
+  deriving (Show)
+
+data TemplateContext = forall a . (Typeable a, Data a) => TemplateContext a
+data WhebTemplate =
+  WhebTemplate (TemplateContext -> IO (Either TemplateError Builder))
+
 
 -- * Routes
 

@@ -20,6 +20,9 @@ module Web.Wheb.InitM
   , addSetting'
   , addSettings
   , readSettingsFile
+  -- * Templates
+  , addTemplate
+  , addTemplates
   -- * Cleanup
   , addCleanupHook
   -- * Running
@@ -89,6 +92,12 @@ addSetting' k v = addSettings $ M.fromList [(k, MkVal v)]
 addSettings :: CSettings -> InitM g s m ()
 addSettings settings = InitM $ tell $ mempty { initSettings = settings }
 
+addTemplate :: T.Text -> WhebTemplate -> InitM g s m ()
+addTemplate k tmpl = addTemplates $ M.fromList [(k, tmpl)]
+
+addTemplates :: TemplateMap -> InitM g s m ()
+addTemplates tmpls = InitM $ tell $ mempty { initTemplates = tmpls }
+
 -- | Reads a file line by line and splits keys and values by \":\".
 --   Uses default "Text.Read" to try to match 'Int', 'Bool' or 'Float' and will add
 --   specific typed settings for those.
@@ -122,16 +131,17 @@ generateOptions m = do
                         { settingsOnOpen = atomically (addToTVar ac)
                         , settingsOnClose = atomically (subFromTVar ac)}
   return $ WhebOptions { appRoutes = initRoutes
-                         , runTimeSettings = initSettings
-                         , warpSettings = warpsettings
-                         , startingCtx = g
-                         , startingState = InternalState s M.empty
-                         , waiStack = initWaiMw
-                         , whebMiddlewares = initWhebMw
-                         , defaultErrorHandler = defaultErr
-                         , shutdownTVar  = tv
-                         , activeConnections = ac
-                         , cleanupActions = initCleanup }
+                       , runTimeSettings = initSettings
+                       , warpSettings = warpsettings
+                       , startingCtx = g
+                       , startingState = InternalState s M.empty
+                       , waiStack = initWaiMw
+                       , whebMiddlewares = initWhebMw
+                       , defaultErrorHandler = defaultErr
+                       , shutdownTVar  = tv
+                       , activeConnections = ac
+                       , cleanupActions = initCleanup
+                       , templates = initTemplates }
   where addToTVar ac = ((readTVar ac) >>= (\cs -> writeTVar ac (succ cs)))
         subFromTVar ac = ((readTVar ac) >>= (\cs -> writeTVar ac (pred cs)))
 

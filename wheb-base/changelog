@@ -1,5 +1,9 @@
 -*- changelog -*-
 
+0.2.0.0  Kyle Hanson  <hanooter@gmail.com>
+  * Templates!
+  * Hastache example.
+  
 0.1.0.0  Kyle Hanson  <hanooter@gmail.com>
   * Ability to read settings from a file
   * Add graceful shutdown and on-shutdown hooks.

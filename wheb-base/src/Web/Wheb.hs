@@ -33,6 +33,8 @@ module Web.Wheb
   , text
   , file
   , builder
+  , renderTemplate
+  , renderTemplate'
   -- *** Setting a header
   , setHeader
   , setRawHeader
@@ -83,6 +85,9 @@ module Web.Wheb
   , addSetting'
   , addSettings
   , readSettingsFile
+  -- * Templates
+  , addTemplate
+  , addTemplates
   -- ** Cleanup
   , addCleanupHook
   -- * Running

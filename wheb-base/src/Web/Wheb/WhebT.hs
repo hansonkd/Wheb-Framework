@@ -19,6 +19,8 @@ module Web.Wheb.WhebT
   , text
   , file
   , builder
+  , renderTemplate
+  , renderTemplate'
   
   -- * Settings
   , getSetting
@@ -239,7 +241,24 @@ builder :: Monad m => T.Text -> Builder -> WhebHandlerT g s m
 builder c b = do
     setHeader (T.pack "Content-Type") c 
     return $ HandlerResponse status200 b
-    
+
+-- | Render a template or throw a 500 error
+renderTemplate :: MonadIO m => T.Text -> TemplateContext -> WhebHandlerT g s m
+renderTemplate k ctx = renderTemplate' k ctx (T.pack "text/html")
+
+-- | Like renderTemplate except designate content-type
+renderTemplate' :: MonadIO m => T.Text -> 
+                   TemplateContext -> 
+                   T.Text -> 
+                   WhebHandlerT g s m
+renderTemplate' k ctx ct = do
+  mTemplate <- WhebT $ liftM (M.lookup k . templates . globalSettings) ask
+  case mTemplate of
+    Nothing   -> throwError $ RenderError k TemplateNotFound
+    Just (WhebTemplate func) -> do
+      r <- liftIO (func ctx)
+      either (throwError . RenderError k) (builder ct) r
+      
 -- * Running a Wheb Application
 
 -- | Running a Handler with a custom Transformer
