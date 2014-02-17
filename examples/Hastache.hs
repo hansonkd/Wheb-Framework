@@ -1,27 +1,33 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 
-import           Control.Monad
-import           Data.Monoid ((<>))
-import           Data.Text.Lazy as T
+import           Data.Data 
+import           Data.Generics 
+import           Data.Text.Lazy (Text)
 import           Web.Wheb
 import           Web.Wheb.Plugins.Hastache
 
-data MyApp = MyApp T.Text
-data MyState = MyState
-type MyHandler = WhebHandler MyApp MyState
+data Info = Info 
+  { name    :: String
+  , unread  :: Int } deriving (Data, Typeable)
 
-
-handleHome :: MyHandler
+-- You can render template varaibles either by passing a dictionary
+handleHome :: MinHandler
 handleHome = renderTemplate "index" tc
-  where tc = TemplateContext 
-                  ([("name", "jacob"), ("unread", "5")] :: [(T.Text, T.Text)])
+  where tc = TemplateContext ([ ("name", "jacob")
+                              , ("unread", "500")] :: [(Text, Text)])
 
+-- Or by using Data.Data
+handleGeneric :: MinHandler
+handleGeneric = renderTemplate "index" tc
+  where tc = TemplateContext $ Info "Generic Dan" 4000
+  
 main :: IO ()
 main = do
-  opts <- generateOptions $ do
+  opts <- genMinOpts $ do
             addGET "home" rootPat handleHome
+            addGET "generic" "generic" handleGeneric
             
             initHastache "examples/resources/templates"
-            
-            return (MyApp "Tutorial App", MyState)
+
   runWhebServer opts

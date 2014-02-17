@@ -89,7 +89,7 @@ addSetting = addSetting'
 addSetting' :: Typeable a => T.Text -> a -> InitM g s m ()
 addSetting' k v = addSettings $ M.fromList [(k, MkVal v)]
 
-addSettings :: CSettings -> InitM g s m ()
+addSettings :: TypedSettings -> InitM g s m ()
 addSettings settings = InitM $ tell $ mempty { initSettings = settings }
 
 addTemplate :: T.Text -> WhebTemplate -> InitM g s m ()

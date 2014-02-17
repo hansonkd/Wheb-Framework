@@ -17,17 +17,20 @@ Wheb's a framework for building robust, high-concurrency web applications simply
 * Easy handler debugging.
 * Middleware
 * Fast. It deploys on warp.
+* Template agnostic templating. Swap out template backends on the fly.
 
 ### Plugins
 
 Wheb makes it easy to write plugins. Plugins can add routes, middleware, settings and even handle resource cleanup on server shutdown. Named routes allow plugins to dynamically generate their routes at runtime based on settings. 
+
+With Wheb's templating system, plugins can add default handlers that you can then override later.
 
 Examples of plugins:
 
 * Sessions
 * Auth
 * [Wheb-Mongo](http://hackage.haskell.org/package/wheb-mongo)
-
+* [Wheb-Hastache](http://hackage.haskell.org/package/wheb-hastache)
 
 Getting Started
 ---------------
@@ -81,27 +84,80 @@ Run the server and run cURL to test...
 $ curl http://localhost:3000/
 Hello World!
 ```
+### Templates
+
+Wheb uses template agnostic templating. What does this mean? Each template consists of one thing: a function that takes a Typeable data and outputs a Bytestring Builder in IO context. With this, you can build your own type safe templates and use whatever you want, Blaze, Heist, Hamlet, HSP or the easy to use prebuilt Hastache plugin.
+
+By generalizing the template rendering function in our handlers, plugins can easily render HTML pages with knowledge that generic function to render it exists. It also makes us strictly seperate our templates from the rest of our code.
+
+Blaze is pretty popular, so lets try writing a blaze template. First lets start completely over with some new imports and our template.
+
+```haskell
+{-# LANGUAGE OverloadedStrings #-}
+
+import           Data.Text.Lazy (unpack)
+import           Text.Read (readMaybe)
+import qualified Text.Blaze.Html5 as H
+import qualified Text.Blaze.Html5.Attributes as A
+import           Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
+
+import           Web.Wheb
+
+handleHome :: MinHandler
+handleHome = renderTemplate "home" emptyContext
+
+homeTemplate :: WhebTemplate
+homeTemplate = WhebTemplate func
+  where func _ = return $ Right $ renderHtmlBuilder $ do
+          H.docTypeHtml $ do
+                H.body $ do
+                   H.h1 "Wheb tutorial"
+
+main :: IO ()
+main = do
+  opts <- genMinOpts $ do
+            addGET "." rootPat handleHome
+            addTemplate "home" homeTemplate
+  runWhebServer opts
+  
+```
+
+A Wheb template takes a TemplateContext and returns either an error or a Builder, so we should properly handle any errors, but so far our home template is static so not much to worry about.
+
 ### Capturing data
 
-Returning static data isn't too interesting, so lets add a new handler and route that echo something back to us. Lets import Monoid's `<>` to make appending easier...
+Returning static data isn't too interesting, so lets add a new handler and route that echo something back to us. We are going to have to import the Typeable Library becuase we will want to cast our template context back into the correct type (Text).
+
 
 ``` haskell
+
+import           Data.Typeable (cast)
+
+...
+
 handleEcho :: MinHandler
 handleEcho = do
   msg <- getRouteParam "msg"
-  text $ "Msg was: " <> msg
-
-...
+  renderTemplate "echo" $ TemplateContext (msg :: Text)
   
-  opts <- genMinOpts $ do
-            addGET "home" rootPat handleHome
-            addGET "echo" ("echo" </> (grabText "msg")) handleEcho
-```
-Now test:
+numberTemplate :: WhebTemplate
+numberTemplate = WhebTemplate func
+  where func (TemplateContext inp) =
+          case (cast inp :: Maybe Text) of
+            Nothing -> return $ Left TemplateContextError
+            Just e ->  return $ Right $ renderHtmlBuilder $ do
+                    H.docTypeHtml $
+                           H.body $ do
+                              H.h1 "Echo"
+                              H.h2 $ H.toMarkup e
 
-```
-$ curl http://localhost:3000/echo/hello
-Msg was: hello
+main :: IO ()
+main = do
+  opts <- genMinOpts $ do
+            addGET "." rootPat handleHome
+            addGET "echo" ("echo" </> (grabText "msg")) handleEcho
+            addTemplate "home" homeTemplate
+  runWhebServer opts
 ```
 
 ### Named routes
@@ -109,10 +165,10 @@ Msg was: hello
 So what if you wanted to generate the path back to the handleEcho handler? With named routes, it's pretty easy:
 
 ```haskell
-handleHome :: MinHandler
-handleHome = do
+handleShowRoute :: MinHandler
+handleShowRoute = do
   url <- getRoute "echo" [("msg", MkChunk ("My Awesome message" :: T.Text))] 
-  html $ "<html><body><a href=\"" <> url <> "\">Echo My Awesome message</a></body></html>!"
+  text url
 ```
 
 ## Global contexts and Handler State.

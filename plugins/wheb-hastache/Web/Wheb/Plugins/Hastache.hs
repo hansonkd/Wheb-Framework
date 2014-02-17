@@ -10,6 +10,12 @@ templates\/some_folder\/faq.hastache
 
 Running @initHastache \"templates\"@ will let you access the templates with the
 names \"index\" and \"some_folder\/faq\"
+
+Partials will be loaded from the same directory and have a \".htp\" extension.
+
+This reads templates on demand and doesn't cache. Performance could be improved
+by reading templates in the beginning and caching them, although it might be
+annoying for development.
 -}
 
 module Web.Wheb.Plugins.Hastache 
@@ -31,6 +37,7 @@ import           Web.Wheb
 
 -- | Scans a directory and adds files ending with \".ht\" or \".hastache\" to 
 -- our template system with the name equal to the name without extension.
+-- Will also set the directory for partials, and partials will have a \".htp\"
 initHastache :: MonadIO m => FilePath -> InitM g s m ()
 initHastache fp = do
   files <- liftIO $ find always match path
@@ -38,7 +45,9 @@ initHastache fp = do
   where addfile fn = addTemplate (tn fn) (WhebTemplate $ templateFunc fn)
         path = addTrailingPathSeparator fp
         readFunc = templateRead fp
-        config = (defaultConfig :: MuConfig IO) { muTemplateRead = readFunc } 
+        config = (defaultConfig :: MuConfig IO) { muTemplateRead = readFunc
+                                                , muTemplateFileDir = Just path
+                                                , muTemplateFileExt = Just ".htp"}
         match = extension ==? ".hastache" ||? extension ==? ".ht"
         tn = maybe T.empty id . cleanFn . T.pack
         cleanFn fn = T.stripPrefix (T.pack path) $ head $ T.split (=='.') fn
@@ -46,7 +55,7 @@ initHastache fp = do
           let ctx = case (cast c :: Maybe [(T.Text, T.Text)]) of
                   Nothing -> (mkGenericContext c)
                   Just l  -> (mkStrContext $ 
-                              (\k -> maybe MuNothing MuVariable $ lookup k l))
+                              (\k -> maybe MuNothing MuVariable $ lookup (T.pack k) l))
           b <- hastacheFileBuilder config fn ctx
           return $ Right b
 

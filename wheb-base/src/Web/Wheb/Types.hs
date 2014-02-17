@@ -79,7 +79,7 @@ data InternalState s =
   InternalState { reqState     :: s
                 , respHeaders  :: M.Map HeaderName ByteString } 
                 
-data SettingsValue = forall a. (Typeable a) => MkVal a
+data TypedValue = forall a. (Typeable a) => MkVal a
 
 data WhebError = Error500 String 
                | Error404
@@ -95,7 +95,7 @@ instance Error WhebError where
 -- | Monoid to use in InitM's WriterT
 data InitOptions g s m =
   InitOptions { initRoutes      :: [ Route g s m ]
-              , initSettings    :: CSettings
+              , initSettings    :: TypedSettings
               , initWaiMw       :: Middleware
               , initWhebMw      :: [ WhebMiddleware g s m ]
               , initCleanup     :: [ IO () ]
@@ -114,7 +114,7 @@ instance Monoid (InitOptions g s m) where
 -- | The main option datatype for Wheb
 data WhebOptions g s m = MonadIO m => 
   WhebOptions { appRoutes           :: [ Route g s m ]
-              , runTimeSettings     :: CSettings
+              , runTimeSettings     :: TypedSettings
               , warpSettings        :: Warp.Settings
               , startingCtx         :: g -- ^ Global ctx shared between requests
               , startingState       :: InternalState s -- ^ Handler state given each request
@@ -128,7 +128,7 @@ data WhebOptions g s m = MonadIO m =>
 
 type EResponse = Either WhebError Response
 
-type CSettings = M.Map T.Text SettingsValue
+type TypedSettings = M.Map T.Text TypedValue
 type TemplateMap = M.Map T.Text WhebTemplate
     
 type WhebHandler g s      = WhebT g s IO HandlerResponse
@@ -143,13 +143,16 @@ type MinOpts = WhebOptions () () IO
 
 -- * Templates
 
-data TemplateError = TemplateNotFound | TemplateGenericError String 
+data TemplateError = TemplateNotFound 
+                   | TemplateContextError 
+                   | TemplateGenericError String 
   deriving (Show)
 
 data TemplateContext = forall a . (Typeable a, Data a) => TemplateContext a
 data WhebTemplate =
   WhebTemplate (TemplateContext -> IO (Either TemplateError Builder))
 
+emptyContext = TemplateContext ()
 
 -- * Routes
 
