@@ -103,9 +103,6 @@ import           Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 
 import           Web.Wheb
 
-handleHome :: MinHandler
-handleHome = renderTemplate "home" emptyContext
-
 homeTemplate :: WhebTemplate
 homeTemplate = WhebTemplate func
   where func _ = return $ Right $ renderHtmlBuilder $ do
@@ -113,6 +110,13 @@ homeTemplate = WhebTemplate func
                 H.body $ do
                    H.h1 "Wheb tutorial"
 
+```
+Now our rendering function is compartmentalized away from our views.
+
+```haskell       
+handleHome :: MinHandler
+handleHome = renderTemplate "home" emptyContext
+                   
 main :: IO ()
 main = do
   opts <- genMinOpts $ do
@@ -157,6 +161,7 @@ main = do
             addGET "." rootPat handleHome
             addGET "echo" ("echo" </> (grabText "msg")) handleEcho
             addTemplate "home" homeTemplate
+            addTemplate "number" numberTemplate
   runWhebServer opts
 ```
 

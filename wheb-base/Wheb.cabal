@@ -134,7 +134,7 @@ library
 
 test-suite Main
   type:            exitcode-stdio-1.0
-  build-depends:   Wheb ==0.1.*,
+  build-depends:   Wheb ==0.2.*,
                    base ==4.6.*, 
                    HUnit >= 1.2 && < 2,
                    QuickCheck >= 2.4,
