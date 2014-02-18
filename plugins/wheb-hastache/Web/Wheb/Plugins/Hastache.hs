@@ -4,14 +4,14 @@ Basic Hastache integration. Recursively scans a directory for templates.
 Lets say you have this template structure:
 
 @
-templates/index.ht
-templates\/some_folder\/faq.hastache
+templates\/index.mustache
+templates\/some_folder\/faq.mustache
 @
 
 Running @initHastache \"templates\"@ will let you access the templates with the
 names \"index\" and \"some_folder\/faq\"
 
-Partials will be loaded from the same directory and have a \".htp\" extension.
+Partials will be loaded from the same directory with mustache extensions.
 
 This reads templates on demand and doesn't cache. Performance could be improved
 by reading templates in the beginning and caching them, although it might be
@@ -35,9 +35,10 @@ import           Text.Hastache
 import           Text.Hastache.Context 
 import           Web.Wheb
 
--- | Scans a directory and adds files ending with \".ht\" or \".hastache\" to 
+-- | Scans a directory and adds files ending with the \"mustache\" exention to 
 -- our template system with the name equal to the name without extension.
--- Will also set the directory for partials, and partials will have a \".htp\"
+-- Will also set the directory for partials, and partials will have a 
+-- \"mustache\" extension.
 initHastache :: MonadIO m => FilePath -> InitM g s m ()
 initHastache fp = do
   files <- liftIO $ find always match path
@@ -47,8 +48,8 @@ initHastache fp = do
         readFunc = templateRead fp
         config = (defaultConfig :: MuConfig IO) { muTemplateRead = readFunc
                                                 , muTemplateFileDir = Just path
-                                                , muTemplateFileExt = Just ".htp"}
-        match = extension ==? ".hastache" ||? extension ==? ".ht"
+                                                , muTemplateFileExt = Just ".mustache"}
+        match = extension ==? ".mustache"
         tn = maybe T.empty id . cleanFn . T.pack
         cleanFn fn = T.stripPrefix (T.pack path) $ head $ T.split (=='.') fn
         templateFunc fn (TemplateContext c) = do

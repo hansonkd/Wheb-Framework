@@ -11,7 +11,7 @@ data Info = Info
   { name    :: String
   , unread  :: Int } deriving (Data, Typeable)
 
--- You can render template varaibles either by passing a dictionary
+-- You can render template varaibles either by passing a List
 handleHome :: MinHandler
 handleHome = renderTemplate "index" tc
   where tc = TemplateContext ([ ("name", "jacob")

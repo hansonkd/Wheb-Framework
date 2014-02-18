@@ -33,8 +33,11 @@ module Web.Wheb
   , text
   , file
   , builder
+  , redirect
   , renderTemplate
   , renderTemplate'
+  , raise404
+  , raise403
   -- *** Setting a header
   , setHeader
   , setRawHeader

@@ -19,8 +19,11 @@ module Web.Wheb.WhebT
   , text
   , file
   , builder
+  , redirect
   , renderTemplate
   , renderTemplate'
+  , raise404
+  , raise403
   
   -- * Settings
   , getSetting
@@ -241,6 +244,21 @@ builder :: Monad m => T.Text -> Builder -> WhebHandlerT g s m
 builder c b = do
     setHeader (T.pack "Content-Type") c 
     return $ HandlerResponse status200 b
+
+-- | Redirect to a given url.
+redirect :: Monad m => T.Text -> WhebHandlerT g s m
+redirect u = do
+  setHeader (T.pack "Content-Type") (T.pack "text/plain")
+  setHeader (T.pack "Location") u
+  return $ HandlerResponse status301 T.empty
+
+-- | Stop the computation and raise a 404
+raise404 :: Monad m => WhebHandlerT g s m
+raise404 = throwError Error404
+
+-- | Stop the computation and raise a 403
+raise403 :: Monad m => WhebHandlerT g s m
+raise403 = throwError Error403
 
 -- | Render a template or throw a 500 error
 renderTemplate :: MonadIO m => T.Text -> TemplateContext -> WhebHandlerT g s m

@@ -11,9 +11,6 @@ import           Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 
 import           Web.Wheb
 
-blazeResp :: H.Html -> MinHandler
-blazeResp = builder "text/html" . renderHtmlBuilder
-
 blazeForm :: H.Html
 blazeForm = do
   H.p "Input a number"
@@ -50,7 +47,7 @@ numberTemplate = WhebTemplate func
                                       H.ul $ forM_ [1 .. i] (H.li . H.toHtml)
                                   Nothing -> H.p "Enter a valid number."
                               blazeForm
-          
+
 handlePOST :: MinHandler
 handlePOST = do
   n <- getPOSTParam "num"

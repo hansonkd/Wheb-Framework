@@ -143,7 +143,7 @@ test-suite Main
                    test-framework-hunit,
                    text ==0.11.*
 
-  ghc-options:     -Wall -rtsopts
+  ghc-options:     -rtsopts
   hs-source-dirs:  tests
   default-language: Haskell2010
   hs-source-dirs:  tests

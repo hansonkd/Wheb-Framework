@@ -11,13 +11,13 @@ Wheb's a framework for building robust, high-concurrency web applications simply
 
 * The core datatype will let you build anything from a read-only server to a fully interactive web application with basic Haskell.
 * Minimal boilerplate to start your application.
+* Template agnostic templating (different from being simply template agnostic). Easily swap out template backends on the fly.
 * Named routes and URL generation (though it was a trade-off between named and type-safe urls).
 * Easy to use for REST APIs
 * Fully database and template agnostic
 * Easy handler debugging.
 * Middleware
 * Fast. It deploys on warp.
-* Template agnostic templating. Swap out template backends on the fly.
 
 ### Plugins
 
@@ -86,9 +86,9 @@ Hello World!
 ```
 ### Templates
 
-Wheb uses template agnostic templating. What does this mean? Each template consists of one thing: a function that takes a Typeable data and outputs a Bytestring Builder in IO context. With this, you can build your own type safe templates and use whatever you want, Blaze, Heist, Hamlet, HSP or the easy to use prebuilt Hastache plugin.
+Wheb uses template agnostic templating. What does this mean? Each template consists of one thing: a function that takes a Typeable data and outputs a Bytestring Builder in IO context. With this, you can build your own type-safe templates and use whatever you want: Blaze, Heist, Hamlet, HSP or the easy to use prebuilt Hastache plugin.
 
-By generalizing the template rendering function in our handlers, plugins can easily render HTML pages with knowledge that generic function to render it exists. It also makes us strictly seperate our templates from the rest of our code.
+By generalizing the template rendering function in our handlers, plugins can easily render HTML pages with knowledge that generic function to render it exists. It also makes it easy to strictly seperate our templates from the rest of our code.
 
 Blaze is pretty popular, so lets try writing a blaze template. First lets start completely over with some new imports and our template.
 
@@ -109,32 +109,26 @@ homeTemplate = WhebTemplate func
           H.docTypeHtml $ do
                 H.body $ do
                    H.h1 "Wheb tutorial"
-
 ```
+
 Now our rendering function is compartmentalized away from our views.
 
 ```haskell       
 handleHome :: MinHandler
 handleHome = renderTemplate "home" emptyContext
-                   
+
 main :: IO ()
 main = do
   opts <- genMinOpts $ do
             addGET "." rootPat handleHome
             addTemplate "home" homeTemplate
   runWhebServer opts
-  
 ```
-
-A Wheb template takes a TemplateContext and returns either an error or a Builder, so we should properly handle any errors, but so far our home template is static so not much to worry about.
-
 ### Capturing data
 
-Returning static data isn't too interesting, so lets add a new handler and route that echo something back to us. We are going to have to import the Typeable Library becuase we will want to cast our template context back into the correct type (Text).
-
+Returning static data isn't too interesting, so lets add a new handler and route that echo something back to us. We are going to have to import the Typeable Library becuase we will want to cast our template context back into the correct type (Text). A Wheb template takes a TemplateContext and returns either an error or a Builder, so we should properly handle any errors.
 
 ``` haskell
-
 import           Data.Typeable (cast)
 
 ...
