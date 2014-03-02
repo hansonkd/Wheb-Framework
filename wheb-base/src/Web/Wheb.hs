@@ -75,6 +75,8 @@ module Web.Wheb
   , addRoute
   , addRoutes
   , catchAll
+  -- ** Sites
+  , addSite
   -- ** Middlewares
   , addWAIMiddleware
   , addWhebMiddleware

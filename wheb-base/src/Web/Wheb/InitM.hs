@@ -8,6 +8,8 @@ module Web.Wheb.InitM
   , addPOST
   , addPUT
   , addDELETE
+  -- ** Sites
+  , addSite
   -- ** Add raw routes
   , addRoute
   , addRoutes
@@ -42,6 +44,7 @@ import           Network.Wai.Handler.Warp (defaultSettings
 import           Network.HTTP.Types.Method
 import           Text.Read (readMaybe)
 
+import           Web.Routes (Site(..))
 import           Web.Wheb.Internal
 import           Web.Wheb.Routes
 import           Web.Wheb.Types
@@ -64,6 +67,9 @@ addRoute r = addRoutes [r]
 
 addRoutes :: [Route g s m] -> InitM g s m ()
 addRoutes rs = InitM $ tell $ mempty { initRoutes = rs }
+
+addSite :: T.Text -> Site url (WhebHandlerT g s m) -> InitM g s m ()
+addSite t s = InitM $ tell $ mempty { initSites = [PackedSite t s] }
 
 -- | Catch all requests regardless of method or path
 catchAll :: WhebHandlerT g s m -> InitM g s m ()
@@ -122,16 +128,17 @@ generateOptions m = do
                         { settingsOnOpen = atomically (addToTVar ac)
                         , settingsOnClose = atomically (subFromTVar ac)}
   return $ WhebOptions { appRoutes = initRoutes
-                         , runTimeSettings = initSettings
-                         , warpSettings = warpsettings
-                         , startingCtx = g
-                         , startingState = InternalState s M.empty
-                         , waiStack = initWaiMw
-                         , whebMiddlewares = initWhebMw
-                         , defaultErrorHandler = defaultErr
-                         , shutdownTVar  = tv
-                         , activeConnections = ac
-                         , cleanupActions = initCleanup }
+                       , appSites  = initSites 
+                       , runTimeSettings = initSettings
+                       , warpSettings = warpsettings
+                       , startingCtx = g
+                       , startingState = InternalState s M.empty
+                       , waiStack = initWaiMw
+                       , whebMiddlewares = initWhebMw
+                       , defaultErrorHandler = defaultErr
+                       , shutdownTVar  = tv
+                       , activeConnections = ac
+                       , cleanupActions = initCleanup }
   where addToTVar ac = ((readTVar ac) >>= (\cs -> writeTVar ac (succ cs)))
         subFromTVar ac = ((readTVar ac) >>= (\cs -> writeTVar ac (pred cs)))
 

@@ -177,7 +177,7 @@ handleHome = do
   text $ "Start state: " <> (spack state) <> ". End state: " <> (spack state2)
 
 ...
-  
+
    opts <- generateOptions $ do
           addGET "home" rootPat handleHome
           return (MyApp "Tutorial App", MyState "In the beginning.")

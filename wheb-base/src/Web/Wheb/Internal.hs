@@ -14,9 +14,18 @@ import           Network.HTTP.Types.Method
 import           Network.Wai
 import           Network.Wai.Parse
 
+import           Web.Routes (runSite, Site(..))
 import           Web.Wheb.Routes
 import           Web.Wheb.Types
 import           Web.Wheb.Utils
+
+findSiteMatch :: [PackedSite g s m] -> 
+                 [T.Text] -> 
+                 Maybe (WhebHandlerT g s m)
+findSiteMatch [] _ = Nothing
+findSiteMatch ((PackedSite t site):sites) cs = 
+  either (const (findSiteMatch sites cs)) Just $
+        runSite (T.toStrict t) site (map T.toStrict cs)
 
 -- * Converting to WAI application
                       
@@ -31,11 +40,16 @@ optsToApplication opts@(WhebOptions {..}) runIO r = do
           (mRes, st) <- runMiddlewares opts whebMiddlewares mwData
           case mRes of
               Just resp -> return $ Right resp
-              Nothing -> case (findUrlMatch stdMthd pathChunks appRoutes) of
-                        Just (h, params) -> do
-                            let hData = mwData { routeParams = params }
-                            runWhebHandler opts h st hData 
-                        Nothing          -> return $ Left Error404
+              Nothing -> do
+                  case (findSiteMatch appSites pathChunks) of
+                    Just h -> do
+                      runWhebHandler opts h st mwData
+                    Nothing -> do
+                        case (findUrlMatch stdMthd pathChunks appRoutes) of
+                              Just (h, params) -> do
+                                  let hData = mwData { routeParams = params }
+                                  runWhebHandler opts h st hData 
+                              Nothing          -> return $ Left Error404
   either handleError return res
   where baseData   = HandlerData startingCtx r ([], []) [] opts
         pathChunks = fmap T.fromStrict $ pathInfo r
