@@ -16,6 +16,7 @@ import           Control.Monad.Reader
 import           Control.Monad.Writer
 import           Data.Monoid ((<>))
 
+import           Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.List (intercalate)
 import           Data.Map as M
@@ -30,7 +31,7 @@ import           Network.HTTP.Types.Method
 import           Network.HTTP.Types.Status
 import           Network.HTTP.Types.Header
 
-import           Data.ByteString (ByteString)
+import           Web.Routes (Site(..))
 
 
 -- | WhebT g s m
@@ -93,19 +94,26 @@ instance Error WhebError where
 -- | Monoid to use in InitM's WriterT
 data InitOptions g s m =
   InitOptions { initRoutes      :: [ Route g s m ]
+              , initSites       :: [ PackedSite g s m ]
               , initSettings    :: CSettings
               , initWaiMw       :: Middleware
               , initWhebMw      :: [ WhebMiddleware g s m ]
               , initCleanup     :: [ IO () ] }
 
 instance Monoid (InitOptions g s m) where
-  mappend (InitOptions a1 b1 c1 d1 e1) (InitOptions a2 b2 c2 d2 e2) = 
-      InitOptions (a1 <> a2) (b1 <> b2) (c2 . c1) (d1 <> d2) (e1 <> e2)
-  mempty = InitOptions mempty mempty id mempty mempty
+  mappend (InitOptions a1 s1 b1 c1 d1 e1) (InitOptions a2 s2 b2 c2 d2 e2) = 
+      InitOptions (a1 <> a2) 
+                  (s1 <> s2)
+                  (b1 <> b2)
+                  (c2 . c1) 
+                  (d1 <> d2) 
+                  (e1 <> e2)
+  mempty = InitOptions mempty mempty mempty id mempty mempty
 
 -- | The main option datatype for Wheb
 data WhebOptions g s m = MonadIO m => 
   WhebOptions { appRoutes           :: [ Route g s m ]
+              , appSites            :: [ PackedSite g s m ]
               , runTimeSettings     :: CSettings
               , warpSettings        :: Warp.Settings
               , startingCtx         :: g -- ^ Global ctx shared between requests
@@ -113,7 +121,7 @@ data WhebOptions g s m = MonadIO m =>
               , waiStack            :: Middleware
               , whebMiddlewares     :: [ WhebMiddleware g s m ]
               , defaultErrorHandler :: WhebError -> WhebHandlerT g s m
-              , shutdownTVar       :: TVar Bool
+              , shutdownTVar        :: TVar Bool
               , activeConnections   :: TVar Int
               , cleanupActions      :: [ IO () ] }
 
@@ -132,6 +140,7 @@ type MinHandler = MinWheb HandlerResponse
 type MinOpts = WhebOptions () () IO
 
 -- * Routes
+data PackedSite g s m = forall a . PackedSite T.Text (Site a (WhebHandlerT g s m))
 
 type  RouteParamList = [(T.Text, ParsedChunk)]
 type  MethodMatch = StdMethod -> Bool
