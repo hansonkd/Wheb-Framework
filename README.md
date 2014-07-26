@@ -11,7 +11,7 @@ Wheb's a framework for building robust, high-concurrency web applications simply
 
 * The core datatype will let you build anything from a read-only server to a fully interactive web application with basic Haskell.
 * Minimal boilerplate to start your application.
-* Named routes and URL generation (though it was a trade-off between named and type-safe urls).
+* Choice between type-safe web-routes or simpler pattern-based named-routes.
 * Easy to use for REST APIs
 * Fully database and template agnostic
 * Easy handler debugging.
@@ -27,7 +27,7 @@ Examples of plugins:
 * Sessions
 * Auth
 * [Wheb-Mongo](http://hackage.haskell.org/package/wheb-mongo)
-
+* [Wheb-Strapped](http://hackage.haskell.org/package/wheb-mongo)
 
 Getting Started
 ---------------
@@ -68,7 +68,7 @@ handleHome :: MinHandler
 handleHome = text $ "Hello World!"
 ```
 
-Now our handler needs a route. We assign routes inside the `InitM` monad which builds our options. Wheb uses named routes and has some convenience functions for adding them to match their HTTP methods: `addGET`, `addPOST`, `addPUT` and `addDELETE`. `rootPat` is a `UrlPat` that matches on the root directory, `/`.
+Now our handler needs a route. We assign routes inside the `InitM` monad which builds our options. Wheb uses named routes and has some convenience functions for adding them to match their HTTP methods: `addGET`, `addPOST`, `addPUT` and `addDELETE`. `rootPat` is a `UrlPat` that matches on the root directory, `/`. If you want to use type-safe [web-routes](http://hackage.haskell.org/package/web-routes), there is full support for that with the `addSite` function. See `WebRoutes.hs` in examples for more information.
 
 ``` haskell
 opts <- genMinOpts $ do
