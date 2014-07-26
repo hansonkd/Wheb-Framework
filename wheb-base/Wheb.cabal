@@ -1,5 +1,5 @@
 name:                Wheb
-version:             0.1.0.0
+version:             0.2.0.0
 synopsis:            The frictionless WAI Framework
 license:             BSD3
 license-file:        LICENSE
@@ -109,39 +109,37 @@ library
   default-language: Haskell2010
   exposed-modules:     Web.Wheb, Web.Wheb.Cookie, Web.Wheb.InitM, Web.Wheb.Internal, Web.Wheb.Routes, Web.Wheb.Types, Web.Wheb.Utils, Web.Wheb.WhebT, Web.Wheb.Plugins.Auth, Web.Wheb.Plugins.Session, Web.Wheb.Plugins.Debug.MemoryBackend
   
-  build-depends:       base ==4.6.*, 
-                       text ==0.11.*, 
-                       transformers ==0.3.*, 
-                       wai-extra ==2.0.*, 
-                       time ==1.4.*, 
-                       bytestring ==0.10.*, 
-                       blaze-builder ==0.3.*, 
-                       cookie ==0.4.*, 
-                       mtl ==2.1.*, 
-                       containers ==0.5.*, 
-                       wai ==2.0.*, 
-                       http-types ==0.8.*, 
-                       warp ==2.0.*, 
-                       conduit ==1.0.*, 
-                       case-insensitive ==1.0.*, 
-                       pwstore-fast ==2.4.*, 
-                       transformers ==0.3.*,
-                       uuid ==1.3.*, 
-                       stm ==2.4.*, 
-                       unix ==2.6.*
+  build-depends:       base >= 4.7 && < 4.8, 
+                       text >= 1.0 && < 1.2, 
+                       transformers >= 0.4 && < 0.5, 
+                       time >=1.4 && < 1.5, 
+                       bytestring >= 0.10 && < 0.11, 
+                       blaze-builder >=0.3 && < 0.4, 
+                       cookie >=0.4 && < 0.5, 
+                       mtl >=2.1 && < 2.3, 
+                       containers >=0.5 && <0.6, 
+                       wai >= 3.0 && < 3.1, 
+                       warp >= 3.0 && < 3.1, 
+                       wai-extra >= 3.0 && < 3.1, 
+                       http-types >=0.8 && <0.9, 
+                       case-insensitive >=1.2 && < 1.3, 
+                       pwstore-fast >=2.4 && < 2.5, 
+                       uuid >=1.3 && < 1.4, 
+                       stm >=2.4 && < 2.5, 
+                       unix >= 2.7 && < 2.8
   hs-source-dirs:   src
   GHC-options: -Wall -fno-warn-orphans
 
 test-suite Main
   type:            exitcode-stdio-1.0
-  build-depends:   Wheb ==0.1.*,
-                   base ==4.6.*, 
+  build-depends:   Wheb ==0.2.*,
+                   base ==4.7.*, 
                    HUnit >= 1.2 && < 2,
                    QuickCheck >= 2.4,
                    test-framework >= 0.4.1,
                    test-framework-quickcheck2,
                    test-framework-hunit,
-                   text ==0.11.*
+                   text >= 1.0 && < 1.2
 
   ghc-options:     -Wall -rtsopts
   hs-source-dirs:  tests

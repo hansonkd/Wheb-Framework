@@ -6,9 +6,8 @@ import           Blaze.ByteString.Builder (Builder
                                           ,fromLazyByteString
                                           ,toLazyByteString)
 import           Control.Monad
+import           Data.IORef
 import           Data.Monoid
-import           Data.Conduit as C
-import           Data.Conduit.List (fold)
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.Encoding as T
 import qualified Data.Text.Encoding as TS
@@ -27,12 +26,17 @@ spack = T.pack . show
 
 -- | See a 'HandlerResponse's as 'Text'
 showResponseBody :: HandlerResponse -> IO T.Text
-showResponseBody (HandlerResponse s r) = 
-    liftM (T.decodeUtf8 . toLazyByteString) builderBody
-    where chunkFlatAppend m (C.Chunk more) = m `mappend` more
-          chunkFlatAppend m _ = m
-          builderBody = body' (C.$$ fold chunkFlatAppend mempty)
-          (_, _, body') = responseToSource $ toResponse s [] r
+showResponseBody (HandlerResponse s r) = do
+  let (_, _, f) = responseToStream $ toResponse s [] r
+  f $ \streamingBody -> do
+    builderRef <- newIORef mempty
+    let add :: Builder -> IO ()
+        add b = atomicModifyIORef builderRef $ \builder ->
+            (builder `mappend` b, ())
+        flush :: IO ()
+        flush = return ()
+    streamingBody add flush
+    fmap (T.decodeUtf8 . toLazyByteString) $ readIORef builderRef
 
 ----------------------- Instances ------------------------
 instance WhebContent Builder where

@@ -20,5 +20,10 @@ description:
 
 library
   exposed-modules:     Web.Wheb.Plugins.Mongo
-  build-depends:       base ==4.6.*, text ==0.11.*, mongoDB ==1.4.*, Wheb ==0.1.*, bson ==0.2.2, mtl == 2.1.*
+  build-depends:       base >=4.7 && <4.8, 
+                       text >= 1.0 && < 1.2, 
+                       mongoDB >=2.0 && < 2.1, 
+                       Wheb >=0.2 && < 0.3, 
+                       bson >=0.3 && <0.4, 
+                       mtl >= 2.1 && < 2.3
   
