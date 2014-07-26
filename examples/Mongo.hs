@@ -13,7 +13,7 @@ instance MongoApp MyApp where
 
 homePage :: WhebHandler MyApp MyRequestState
 homePage = do
-    mongoRes <- runAction $ do
+    teams <- runAction $ do
         delete (select [] "team")
         insertMany "team" [
             ["name" =: "Yankees", "home" =: ["city" =: "New York", "state" =: "NY"], "league" =: "American"],
@@ -21,9 +21,7 @@ homePage = do
             ["name" =: "Phillies", "home" =: ["city" =: "Philadelphia", "state" =: "PA"], "league" =: "National"],
             ["name" =: "Red Sox", "home" =: ["city" =: "Boston", "state" =: "MA"], "league" =: "American"] ]
         rest =<< find (select [] "team") {sort = ["home.city" =: 1]}
-    case mongoRes of
-        Left err -> text $ spack err
-        Right teams -> text $ T.intercalate " | " $ map spack teams
+    text $ T.intercalate " | " $ map spack teams
 
 main :: IO ()
 main = do

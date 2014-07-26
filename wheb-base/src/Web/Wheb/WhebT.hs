@@ -73,7 +73,8 @@ import           Network.Wai
 import           Network.Wai.Handler.Warp as W
 import           Network.Wai.Parse
 
-import           System.Posix.Signals (installHandler, Handler(Catch), sigINT, sigTERM)
+import           System.Posix.Signals (installHandler, Handler(Catch), 
+                                       sigINT, sigTERM)
 
 import           Web.Wheb.Internal
 import           Web.Wheb.Routes
@@ -271,7 +272,7 @@ runWhebServerT runIO opts@(WhebOptions {..}) = do
 
     forkIO $ runSettings rtSettings $
         gracefulExit $
-        waiStack $ 
+        waiStack $
         optsToApplication opts runIO
 
     loop
@@ -283,11 +284,11 @@ runWhebServerT runIO opts@(WhebOptions {..}) = do
         loop = do
           shutDown <- atomically $ readTVar shutdownTVar
           if shutDown then return () else (threadDelay 100000) >> loop
-        gracefulExit app r = do
+        gracefulExit app r respond = do
           isExit <- atomically $ readTVar shutdownTVar
           case isExit of
-              False -> app r
-              True  -> return $ responseLBS serviceUnavailable503 [] LBS.empty
+              False -> app r respond
+              True  -> respond $ responseLBS serviceUnavailable503 [] LBS.empty
         waitForConnections = do
           openConnections <- atomically $ readTVar activeConnections
           if (openConnections > 0)

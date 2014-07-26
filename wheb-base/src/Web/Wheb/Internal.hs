@@ -24,8 +24,8 @@ import           Web.Wheb.Utils
 optsToApplication :: WhebOptions g s m ->
                      (m EResponse -> IO EResponse) ->
                      Application
-optsToApplication opts@(WhebOptions {..}) runIO r = do
-  pData <- liftIO (parseRequestBody lbsBackEnd r)
+optsToApplication opts@(WhebOptions {..}) runIO r respond = do
+  pData <- parseRequestBody lbsBackEnd r
   res <- runIO $ do
           let mwData = baseData { postData = pData }
           (mRes, st) <- runMiddlewares opts whebMiddlewares mwData
@@ -36,7 +36,8 @@ optsToApplication opts@(WhebOptions {..}) runIO r = do
                             let hData = mwData { routeParams = params }
                             runWhebHandler opts h st hData 
                         Nothing          -> return $ Left Error404
-  either handleError return res
+  finished <- either handleError return res
+  respond finished
   where baseData   = HandlerData startingCtx r ([], []) [] opts
         pathChunks = fmap T.fromStrict $ pathInfo r
         stdMthd    = either (\_-> GET) id $ parseMethod $ requestMethod r

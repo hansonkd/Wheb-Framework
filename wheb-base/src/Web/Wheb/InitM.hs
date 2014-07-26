@@ -119,8 +119,9 @@ generateOptions m = do
   tv <- liftIO $ newTVarIO False
   ac <- liftIO $ newTVarIO 0
   let warpsettings = defaultSettings 
-                        { settingsOnOpen = atomically (addToTVar ac)
-                        , settingsOnClose = atomically (subFromTVar ac)}
+                        { settingsOnOpen = (\_ -> atomically (addToTVar ac) >> return True)
+                        , settingsOnClose = (\_ -> atomically (subFromTVar ac))
+                        }
   return $ WhebOptions { appRoutes = initRoutes
                          , runTimeSettings = initSettings
                          , warpSettings = warpsettings

@@ -58,6 +58,7 @@ module Web.Wheb.Plugins.Mongo (
     , module Database.MongoDB
     ) where
 
+import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Error (throwError)
 import           Data.Bson as B
@@ -79,9 +80,9 @@ instance MongoApp a => AuthApp a where
     getAuthContainer = AuthContainer . getMongoContainer
 
 instance SessionBackend MongoContainer where
-  backendSessionPut sessId key content mc = mvoid $ do
+  backendSessionPut sessId key content mc = do
     collectionName <- getSessionCollection
-    runWithContainer mc $ do
+    mvoid $ runWithContainer mc $ do
       insert_ collectionName [ "sessId" := (toBsonString sessId)
                              , "key" := (toBsonString key)
                              , "content" := (toBsonString content) ]
@@ -90,13 +91,13 @@ instance SessionBackend MongoContainer where
     catchResult $ runWithContainer mc $ do
       n <- next =<< find (select ["sessId" := (toBsonString sessId), "key" := (toBsonString key)] collectionName)
       return $ maybe Nothing ((fmap T.fromStrict) . (B.lookup (T.toStrict key))) n
-  backendSessionDelete sessId key mc = mvoid $ do
+  backendSessionDelete sessId key mc = do
     collectionName <- getSessionCollection
-    runWithContainer mc $
+    mvoid $ runWithContainer mc $
       delete (select ["sessId" := (toBsonString sessId), "key" := (toBsonString key)] collectionName)
-  backendSessionClear sessId mc = mvoid $ do
+  backendSessionClear sessId mc = do
     collectionName <- getSessionCollection
-    runWithContainer mc $
+    mvoid $ runWithContainer mc $
       delete (select ["sessId" := (toBsonString sessId)] collectionName)
 
 instance AuthBackend MongoContainer where
@@ -129,11 +130,14 @@ instance AuthBackend MongoContainer where
 
 toBsonString = val . T.toStrict
 
--- | Push an error from Mongo to a 500 Error.
-catchResult :: Monad m => WhebT g s m (Either Failure b) -> WhebT g s m b
-catchResult m = m >>= either (throwError . Error500 . show) return
+handleEither :: Monad m => Either Failure b -> WhebT g s m b
+handleEither = either (throwError . Error500 . show) return
 
-mvoid :: Monad m => WhebT g s m (Either Failure b) -> WhebT g s m ()
+-- | Push an error from Mongo to a 500 Error.
+catchResult :: MonadIO m => IO b -> WhebT g s m b
+catchResult m = (liftIO $ try m) >>= handleEither
+
+mvoid :: MonadIO m => IO b -> WhebT g s m ()
 mvoid m = catchResult m >> return ()
 
 getSessionCollection :: Monad m => WhebT g s m Collection
@@ -142,21 +146,18 @@ getSessionCollection = liftM T.toStrict (getSetting'' "session-collection" "sess
 getAuthCollection :: Monad m => WhebT g s m Collection
 getAuthCollection = liftM T.toStrict (getSetting'' "auth-collection" "users")
 
-runMaybeContainer :: MonadIO m => MongoContainer -> Action IO a -> WhebT g s m (Maybe a)
-runMaybeContainer m a = liftM (either (const Nothing) Just) (runWithContainer m a)
-
-runWithContainer :: (MonadIO m) => MongoContainer -> Action IO a -> WhebT g s m (Either Failure a)
+runWithContainer :: MongoContainer -> Action IO a ->  IO a
 runWithContainer (MongoContainer pipe mode db) action = liftIO $ access pipe mode db action
 
 -- | Run a MongoDB Action Monad in WhebT
 runAction :: (MongoApp g, MonadIO m) => 
              Action IO a -> 
-             WhebT g s m (Either Failure a)
-runAction action = (getWithApp getMongoContainer) >>= (flip runWithContainer action)
+             WhebT g s m a
+runAction action = (getWithApp getMongoContainer) >>= (\c -> liftIO $ runWithContainer c action)
 
 -- | Initialize mongo with \"host:post\" and default database.
 initMongo :: T.Text -> T.Text -> InitM g s m MongoContainer
 initMongo host db = do
-    pipe <- liftIO $ runIOE $ connect (readHostPort $ T.unpack host)
+    pipe <- liftIO $ connect (readHostPort $ T.unpack host)
     addCleanupHook $ close pipe
     return $ MongoContainer pipe master (T.toStrict db)
