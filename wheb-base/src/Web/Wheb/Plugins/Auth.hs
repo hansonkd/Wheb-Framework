@@ -33,20 +33,13 @@ module Web.Wheb.Plugins.Auth
   , getUserSessionKey
   ) where
 
-import Control.Applicative ((<*>))
-import Control.Monad (void, liftM)
-import Control.Monad.Error
-import Control.Monad.IO.Class
-import Crypto.PasswordStore
-import Data.Maybe
-import Data.Text.Lazy (Text)
-import Data.Text.Lazy as T
-import Data.Text.Lazy.Encoding as T
-import Data.Text.Encoding as ES
-
-import Web.Wheb
-import Web.Wheb.Types
-import Web.Wheb.Plugins.Session
+import Control.Monad.Error (liftM, MonadError(throwError), MonadIO(..))
+import Crypto.PasswordStore (makePassword, verifyPassword)
+import Data.Text.Encoding as ES (decodeUtf8, encodeUtf8)
+import Data.Text.Lazy as T (fromStrict, pack, Text, toStrict)
+import Web.Wheb (getHandlerState, getWithApp, modifyHandlerState', 
+                 WhebError(Error403), WhebHandlerT, WhebMiddleware, WhebT)
+import Web.Wheb.Plugins.Session (deleteSessionValue, getSessionValue', SessionApp, setSessionValue)
     
 -- * Auth functions
 

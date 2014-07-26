@@ -49,37 +49,34 @@ module Web.Wheb.WhebT
   , debugHandlerT
   ) where
 
-import           Blaze.ByteString.Builder (Builder)
-import           Control.Concurrent
-import           Control.Concurrent.STM
-import           Control.Exception as E
-import           Control.Monad.Error
-import           Control.Monad.IO.Class
-import           Control.Monad.Reader
-import           Control.Monad.State
-
-import qualified Data.ByteString.Lazy as LBS
-import           Data.CaseInsensitive (mk)
-import qualified Data.Map as M
-import           Data.Maybe (fromMaybe)
-import qualified Data.Text.Lazy as T
-import           Data.Typeable (Typeable, cast)
-import           Data.List (find)
-
-import           Network.HTTP.Types.Header
-import           Network.HTTP.Types.Status
-import           Network.HTTP.Types.URI
-import           Network.Wai
-import           Network.Wai.Handler.Warp as W
-import           Network.Wai.Parse
-
-import           System.Posix.Signals (installHandler, Handler(Catch), 
-                                       sigINT, sigTERM)
-
-import           Web.Wheb.Internal
-import           Web.Wheb.Routes
-import           Web.Wheb.Types
-import           Web.Wheb.Utils
+import Blaze.ByteString.Builder (Builder)
+import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent.STM (atomically, readTVar, writeTVar)
+import Control.Monad.Error (liftM, MonadError(throwError), MonadIO, void)
+import Control.Monad.Reader (MonadReader(ask))
+import Control.Monad.State (modify, MonadState(get))
+import qualified Data.ByteString.Lazy as LBS (ByteString, empty)
+import Data.CaseInsensitive (mk)
+import Data.List (find)
+import qualified Data.Map as M (insert, lookup)
+import Data.Maybe (fromMaybe)
+import qualified Data.Text.Lazy as T (pack, Text)
+import Data.Typeable (cast, Typeable)
+import Network.HTTP.Types.Header (Header)
+import Network.HTTP.Types.Status (serviceUnavailable503, status200)
+import Network.HTTP.Types.URI (Query)
+import Network.Wai (defaultRequest, Request(queryString, requestHeaders), responseLBS)
+import Network.Wai.Handler.Warp as W (runSettings, setPort)
+import Network.Wai.Parse (File, Param)
+import System.Posix.Signals (Handler(Catch), installHandler, sigINT, sigTERM)
+import Web.Wheb.Internal (optsToApplication, runDebugHandler)
+import Web.Wheb.Routes (generateUrl, getParam)
+import Web.Wheb.Types (CSettings, EResponse, HandlerData(HandlerData, globalCtx, globalSettings, postData, request, routeParams), 
+                       HandlerResponse(HandlerResponse), InternalState(InternalState, reqState, respHeaders), 
+                       Route(..), RouteParamList, SettingsValue(..), 
+                       UrlBuildError(UrlNameNotFound), WhebError(RouteParamDoesNotExist, URLError), 
+                       WhebFile(WhebFile), WhebHandlerT, WhebOptions(..), WhebT(WhebT))
+import Web.Wheb.Utils (lazyTextToSBS, sbsToLazyText)
 
 -- * ReaderT and StateT Functionality
 
@@ -151,8 +148,8 @@ getRouteParam' t = liftM (getParam t) getRouteParams
 
 -- | Convert 'Either' from 'getRoute'' into an error in the Monad
 getRoute :: Monad m => T.Text -> RouteParamList ->  WhebT g s m T.Text
-getRoute t l = do
-        res <- getRoute' t l
+getRoute name l = do
+        res <- getRoute' name l
         case res of
             Right t  -> return t
             Left err -> throwError $ URLError t err
@@ -169,7 +166,7 @@ getRoute' n l = liftM buildRoute (getRawRoute n l)
 getRawRoute :: Monad m => T.Text -> 
              RouteParamList -> 
              WhebT g s m (Maybe (Route g s m))
-getRawRoute n l = WhebT $ liftM f ask  
+getRawRoute n _ = WhebT $ liftM f ask  
     where findRoute (Route {..}) = fromMaybe False (fmap (==n) routeName)  
           f = ((find findRoute) . appRoutes . globalSettings)    
 
@@ -296,7 +293,7 @@ runWhebServerT runIO opts@(WhebOptions {..}) = do
             else return ()
         port = fromMaybe 3000 $ 
           (M.lookup (T.pack "port") runTimeSettings) >>= (\(MkVal m) -> cast m)
-        rtSettings = warpSettings { W.settingsPort = port }
+        rtSettings = W.setPort port warpSettings
 
 -- | Convenience wrapper for 'runWhebServerT' function in IO
 runWhebServer :: (WhebOptions g s IO) -> IO ()

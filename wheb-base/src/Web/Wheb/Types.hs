@@ -5,33 +5,26 @@
 
 module Web.Wheb.Types where
 
-import           Blaze.ByteString.Builder (Builder, fromLazyByteString)
-import           Control.Concurrent.STM
-import           Control.Applicative
-import           Control.Monad.Error
-import           Control.Monad.Trans
-import           Control.Monad.IO.Class
-import           Control.Monad.State
-import           Control.Monad.Reader
-import           Control.Monad.Writer
-import           Data.Monoid ((<>))
-
-import           Data.ByteString (ByteString)
-import qualified Data.ByteString.Lazy as LBS
-import           Data.List (intercalate)
-import           Data.Map as M
-import           Data.String (IsString(..))
-import qualified Data.Text.Lazy as T
-import           Data.Typeable
-
-import           Network.Wai (Request, Response, Middleware, responseBuilder)
-import           Network.Wai.Handler.Warp as Warp
-import           Network.Wai.Parse
-import           Network.HTTP.Types.Method
-import           Network.HTTP.Types.Status
-import           Network.HTTP.Types.Header
-
-import           Web.Routes (Site(..))
+import Control.Applicative (Applicative)
+import Control.Concurrent.STM (TVar)
+import Control.Monad.Error (Error(strMsg), ErrorT(ErrorT), MonadError(..), MonadIO, MonadTrans(..))
+import Control.Monad.Reader (ReaderT(ReaderT))
+import Control.Monad.State (StateT)
+import Control.Monad.Writer ((<>), Monoid(mappend, mempty), WriterT(WriterT))
+import Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as LBS (ByteString)
+import Data.List (intercalate)
+import Data.Map as M (Map)
+import Data.String (IsString(..))
+import qualified Data.Text.Lazy as T (pack, Text, unpack)
+import Data.Typeable (Typeable)
+import Network.HTTP.Types.Header (HeaderName, ResponseHeaders)
+import Network.HTTP.Types.Method (StdMethod)
+import Network.HTTP.Types.Status (Status)
+import Network.Wai (Middleware, Request, Response)
+import Network.Wai.Handler.Warp as Warp (Settings)
+import Network.Wai.Parse (File, Param)
+import Web.Routes (Site(..))
 
 
 -- | WhebT g s m

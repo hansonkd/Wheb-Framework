@@ -29,26 +29,23 @@ module Web.Wheb.InitM
   , genMinOpts
   ) where
 
-import           Control.Concurrent.STM
-import           Control.Monad.IO.Class
-import           Control.Monad.Writer
-import           Data.Char (isSpace)
-import qualified Data.Map as M
-import qualified Data.Text.Lazy as T
-import qualified Data.Text.Lazy.IO as T
-import           Data.Typeable
-import           Network.Wai
-import           Network.Wai.Handler.Warp (defaultSettings
-                                          , settingsOnOpen
-                                          , settingsOnClose)
-import           Network.HTTP.Types.Method
-import           Text.Read (readMaybe)
-
-import           Web.Routes (Site(..))
-import           Web.Wheb.Internal
-import           Web.Wheb.Routes
-import           Web.Wheb.Types
-import           Web.Wheb.Utils
+import Control.Concurrent.STM (atomically, newTVarIO, readTVar, writeTVar)
+import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.Writer (liftM, MonadWriter(tell), Monoid(mempty), WriterT(runWriterT))
+import qualified Data.Map as M (empty, fromList)
+import qualified Data.Text.Lazy as T (lines, pack, splitOn, strip, Text, unpack)
+import qualified Data.Text.Lazy.IO as T (readFile)
+import Data.Typeable (Typeable)
+import Network.HTTP.Types.Method (StdMethod(DELETE, GET, POST, PUT))
+import Network.Wai (Middleware)
+import Network.Wai.Handler.Warp (defaultSettings, setOnClose, setOnOpen)
+import Text.Read (readMaybe)
+import Web.Routes (Site(..))
+import Web.Wheb.Routes (patRoute)
+import Web.Wheb.Types (CSettings, InitM(..), InitOptions(InitOptions, initCleanup, initRoutes, initSettings, initSites, initWaiMw, initWhebMw), 
+                       InternalState(InternalState), MinOpts, PackedSite(PackedSite), Route(Route), SettingsValue(MkVal), UrlParser(UrlParser), 
+                       UrlPat, WhebHandlerT, WhebMiddleware, WhebOptions(..))
+import Web.Wheb.Utils (defaultErr)
 
 addGET :: T.Text -> UrlPat -> WhebHandlerT g s m -> InitM g s m ()
 addGET n p h = addRoute $ patRoute (Just n) GET p h
@@ -124,10 +121,8 @@ generateOptions m = do
   ((g, s), InitOptions {..}) <- runWriterT (runInitM m)
   tv <- liftIO $ newTVarIO False
   ac <- liftIO $ newTVarIO 0
-  let warpsettings = defaultSettings 
-                        { settingsOnOpen = (\_ -> atomically (addToTVar ac) >> return True)
-                        , settingsOnClose = (\_ -> atomically (subFromTVar ac))
-                        }
+  let set1 = setOnOpen (\_ -> atomically (addToTVar ac) >> return True) defaultSettings 
+      warpsettings = setOnClose (\_ -> atomically (subFromTVar ac)) set1
   return $ WhebOptions { appRoutes = initRoutes
                        , appSites  = initSites 
                        , runTimeSettings = initSettings
@@ -145,4 +140,4 @@ generateOptions m = do
 
 -- | Generate options for an application without a context or state
 genMinOpts :: InitM () () IO () -> IO MinOpts
-genMinOpts m = generateOptions (m >> (return ((), ()))) 
+genMinOpts m = generateOptions (m >> (return ((), ())))

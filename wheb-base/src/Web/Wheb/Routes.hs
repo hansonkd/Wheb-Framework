@@ -22,18 +22,16 @@ module Web.Wheb.Routes
   , testUrlParser
   ) where
   
-import qualified Data.Text.Lazy as T
-import           Data.Text.Lazy.Read
-import           Data.Maybe (isJust)
-import           Data.Typeable
-import           Network.HTTP.Types.Method
-import           Network.HTTP.Types.URI
-
-import           Data.Maybe (fromJust)
-import           Data.Monoid ((<>))
-
-import           Web.Wheb.Types
-import           Web.Wheb.Utils
+import Data.Monoid ((<>))
+import qualified Data.Text.Lazy as T (fromStrict, null, pack, Text, toStrict)
+import Data.Text.Lazy.Read (decimal, Reader)
+import Data.Typeable (cast, Typeable)
+import Network.HTTP.Types.Method (StdMethod)
+import Network.HTTP.Types.URI (decodePathSegments, encodePathSegments)
+import Web.Wheb.Types (ChunkType(..), ParsedChunk(..), Route(Route), RouteParamList, 
+                       UrlBuildError(NoParam, ParamTypeMismatch), UrlParser(UrlParser),
+                       UrlPat(Chunk, Composed, FuncChunk), WhebHandlerT)
+import Web.Wheb.Utils (builderToText, lazyTextToSBS, spack)
 
 -- | Build a 'Route' from a 'UrlPat'
 patRoute :: (Maybe T.Text) -> 

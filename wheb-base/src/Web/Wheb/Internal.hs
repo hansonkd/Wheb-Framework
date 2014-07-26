@@ -2,22 +2,21 @@
 
 module Web.Wheb.Internal where
 
-import           Control.Monad.Error
-import           Control.Monad.IO.Class
-import           Control.Monad.Reader
-import           Control.Monad.State
-import           Control.Monad.Writer
-import qualified Data.Map as M
-import qualified Data.Text.Lazy as T
-
-import           Network.HTTP.Types.Method
-import           Network.Wai
-import           Network.Wai.Parse
-
-import           Web.Routes (runSite, Site(..))
-import           Web.Wheb.Routes
-import           Web.Wheb.Types
-import           Web.Wheb.Utils
+import Control.Monad.Error (ErrorT(runErrorT))
+import Control.Monad.Reader (ReaderT(runReaderT))
+import Control.Monad.State (evalStateT, StateT(runStateT))
+import qualified Data.Map as M (toList)
+import qualified Data.Text.Lazy as T (fromStrict, Text, toStrict)
+import Network.HTTP.Types.Method (parseMethod, StdMethod(GET))
+import Network.Wai (Application, Request(pathInfo, requestMethod), Response)
+import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
+import Web.Routes (runSite)
+import Web.Wheb.Routes (findUrlMatch)
+import Web.Wheb.Types (EResponse, HandlerData(HandlerData, postData, routeParams),
+                       HandlerResponse(HandlerResponse), InternalState(..), PackedSite(..), 
+                       WhebContent(toResponse), WhebError(Error404), WhebHandlerT, 
+                       WhebMiddleware, WhebOptions(..), WhebT(runWhebT))
+import Web.Wheb.Utils (uhOh)
 
 findSiteMatch :: [PackedSite g s m] -> 
                  [T.Text] -> 
@@ -69,7 +68,7 @@ runWhebHandler :: Monad m =>
                     InternalState s ->
                     HandlerData g s m ->
                     m EResponse
-runWhebHandler opts@(WhebOptions {..}) handler st hd = do
+runWhebHandler (WhebOptions {..}) handler st hd = do
   (resp, InternalState {..}) <- flip runStateT st $ do
             flip runReaderT hd $
               runErrorT $
@@ -89,8 +88,7 @@ runDebugHandler opts@(WhebOptions {..}) handler hd = do
             flip runReaderT hd $
               runErrorT $
               runWhebT handler
-  where convertResponse hds (HandlerResponse status resp) =
-                          toResponse status (M.toList hds) resp
+
 -- * Running Middlewares
  
 -- | Runs middlewares in order, stopping if one returns a response
@@ -104,7 +102,7 @@ runMiddlewares opts mWs hd = loop mWs (startingState opts)
           loop (mw:mws) st = do
                   mwResult <-  (runWhebMiddleware opts st hd mw)
                   case mwResult of
-                        (Just resp, nst) -> return mwResult
+                        (Just _, _) -> return mwResult
                         (Nothing, nst)   -> loop mws nst
 
 runWhebMiddleware :: Monad m =>
@@ -113,7 +111,7 @@ runWhebMiddleware :: Monad m =>
                     HandlerData g s m ->
                     WhebMiddleware g s m ->
                     m (Maybe Response, InternalState s)
-runWhebMiddleware opts@(WhebOptions {..}) st hd mW = do
+runWhebMiddleware (WhebOptions {..}) st hd mW = do
         (eresp, is@InternalState {..}) <- flip runStateT st $ do
                   flip runReaderT hd $
                     runErrorT $
