@@ -109,7 +109,6 @@ library
   default-language: Haskell2010
   exposed-modules:     Web.Wheb, Web.Wheb.Cookie, Web.Wheb.InitM, Web.Wheb.Internal, Web.Wheb.Routes, Web.Wheb.Types, Web.Wheb.Utils, Web.Wheb.WhebT, Web.Wheb.Plugins.Auth, Web.Wheb.Plugins.Session, Web.Wheb.Plugins.Debug.MemoryBackend
   
-<<<<<<< HEAD
   build-depends:       base >= 4.7 && < 4.8, 
                        text >= 1.0 && < 1.2, 
                        transformers >= 0.4 && < 0.5, 

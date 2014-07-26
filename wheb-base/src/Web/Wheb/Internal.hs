@@ -50,7 +50,6 @@ optsToApplication opts@(WhebOptions {..}) runIO r respond = do
                                   let hData = mwData { routeParams = params }
                                   runWhebHandler opts h st hData 
                               Nothing          -> return $ Left Error404
-
   finished <- either handleError return res
   respond finished
   where baseData   = HandlerData startingCtx r ([], []) [] opts
