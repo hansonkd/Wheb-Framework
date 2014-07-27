@@ -152,7 +152,7 @@ getRoute name l = do
         res <- getRoute' name l
         case res of
             Right t  -> return t
-            Left err -> throwError $ URLError t err
+            Left err -> throwError $ URLError name err
 
 -- | Generate a route from a name and param list.
 getRoute' :: Monad m => T.Text -> 
