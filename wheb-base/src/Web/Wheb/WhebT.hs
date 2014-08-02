@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards, RankNTypes #-}
 
 module Web.Wheb.WhebT
   (
@@ -19,6 +19,7 @@ module Web.Wheb.WhebT
   , text
   , file
   , builder
+  , redirect
   
   -- * Settings
   , getSetting
@@ -60,10 +61,10 @@ import Data.CaseInsensitive (mk)
 import Data.List (find)
 import qualified Data.Map as M (insert, lookup)
 import Data.Maybe (fromMaybe)
-import qualified Data.Text.Lazy as T (pack, Text)
+import qualified Data.Text.Lazy as T (pack, empty, Text)
 import Data.Typeable (cast, Typeable)
 import Network.HTTP.Types.Header (Header)
-import Network.HTTP.Types.Status (serviceUnavailable503, status200)
+import Network.HTTP.Types.Status (serviceUnavailable503, status200, status302)
 import Network.HTTP.Types.URI (Query)
 import Network.Wai (defaultRequest, Request(queryString, requestHeaders), responseLBS)
 import Network.Wai.Handler.Warp as W (runSettings, setPort)
@@ -237,6 +238,12 @@ builder :: Monad m => T.Text -> Builder -> WhebHandlerT g s m
 builder c b = do
     setHeader (T.pack "Content-Type") c 
     return $ HandlerResponse status200 b
+
+-- | Redirect to a given URL
+redirect :: Monad m => T.Text -> WhebHandlerT g s m
+redirect c = do
+    setHeader (T.pack "Location") c
+    return $ HandlerResponse status302 T.empty
     
 -- * Running a Wheb Application
 
@@ -258,7 +265,7 @@ debugHandler opts h = debugHandlerT opts id defaultRequest h
 
 -- | Run a server with a function to run your inner Transformer to IO and 
 -- generated options
-runWhebServerT :: (m EResponse -> IO EResponse) ->
+runWhebServerT :: (forall a . m a -> IO a) ->
                   WhebOptions g s m ->
                   IO ()
 runWhebServerT runIO opts@(WhebOptions {..}) = do

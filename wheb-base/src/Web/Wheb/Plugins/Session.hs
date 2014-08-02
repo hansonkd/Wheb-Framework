@@ -29,7 +29,7 @@ import Web.Wheb.Cookie (getCookie, setCookie)
 -- | Initial pass on abstract plugin for Sessions.
 --   Possibly add support for Typable to ease typecasting.
 
-
+session_cookie_key :: Text
 session_cookie_key = pack "-session-"
 
 data SessionContainer = forall r. SessionBackend r => SessionContainer r

@@ -14,6 +14,8 @@ module Web.Wheb.InitM
   , addRoute
   , addRoutes
   , catchAll
+  -- ** Sockets
+  , addWhebSocket
   -- * Middlewares
   , addWAIMiddleware
   , addWhebMiddleware
@@ -41,10 +43,10 @@ import Network.Wai (Middleware)
 import Network.Wai.Handler.Warp (defaultSettings, setOnClose, setOnOpen)
 import Text.Read (readMaybe)
 import Web.Routes (Site(..))
-import Web.Wheb.Routes (patRoute)
-import Web.Wheb.Types (CSettings, InitM(..), InitOptions(InitOptions, initCleanup, initRoutes, initSettings, initSites, initWaiMw, initWhebMw), 
+import Web.Wheb.Routes (patRoute, compilePat)
+import Web.Wheb.Types (CSettings, InitM(..), InitOptions(..), 
                        InternalState(InternalState), MinOpts, PackedSite(PackedSite), Route(Route), SettingsValue(MkVal), UrlParser(UrlParser), 
-                       UrlPat, WhebHandlerT, WhebMiddleware, WhebOptions(..))
+                       UrlPat, WhebHandlerT, WhebMiddleware, WhebOptions(..), SocketRoute(SocketRoute), WhebSocket)
 import Web.Wheb.Utils (defaultErr)
 
 addGET :: T.Text -> UrlPat -> WhebHandlerT g s m -> InitM g s m ()
@@ -67,6 +69,9 @@ addRoutes rs = InitM $ tell $ mempty { initRoutes = rs }
 
 addSite :: T.Text -> Site url (WhebHandlerT g s m) -> InitM g s m ()
 addSite t s = InitM $ tell $ mempty { initSites = [PackedSite t s] }
+
+addWhebSocket :: UrlPat -> WhebSocket g s m -> InitM g s m ()
+addWhebSocket p h = InitM $ tell $ mempty { initWhebSockets = [SocketRoute (compilePat p) h] }
 
 -- | Catch all requests regardless of method or path
 catchAll :: WhebHandlerT g s m -> InitM g s m ()
@@ -124,6 +129,7 @@ generateOptions m = do
   let set1 = setOnOpen (\_ -> atomically (addToTVar ac) >> return True) defaultSettings 
       warpsettings = setOnClose (\_ -> atomically (subFromTVar ac)) set1
   return $ WhebOptions { appRoutes = initRoutes
+                       , appWhebSockets = initWhebSockets
                        , appSites  = initSites 
                        , runTimeSettings = initSettings
                        , warpSettings = warpsettings

@@ -60,7 +60,7 @@ module Web.Wheb.Plugins.Mongo (
 
 import           Control.Exception
 import           Control.Monad
-import           Control.Monad.Error (throwError)
+import           Control.Monad.Except (throwError)
 import           Data.Bson as B
 import qualified Data.Text.Lazy as T
 import           Database.MongoDB

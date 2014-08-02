@@ -7,7 +7,7 @@ module Web.Wheb.Types where
 
 import Control.Applicative (Applicative)
 import Control.Concurrent.STM (TVar)
-import Control.Monad.Error (Error(strMsg), ErrorT(ErrorT), MonadError(..), MonadIO, MonadTrans(..))
+import Control.Monad.Except (ExceptT(ExceptT), MonadError(..), MonadIO, MonadTrans(..))
 import Control.Monad.Reader (ReaderT(ReaderT))
 import Control.Monad.State (StateT)
 import Control.Monad.Writer ((<>), Monoid(mappend, mempty), WriterT(WriterT))
@@ -24,6 +24,7 @@ import Network.HTTP.Types.Status (Status)
 import Network.Wai (Middleware, Request, Response)
 import Network.Wai.Handler.Warp as Warp (Settings)
 import Network.Wai.Parse (File, Param)
+import Network.WebSockets (Connection)
 import Web.Routes (Site(..))
 
 
@@ -35,7 +36,7 @@ import Web.Routes (Site(..))
 --
 --   * m -> Monad we are transforming
 newtype WhebT g s m a = WhebT 
-  { runWhebT :: ErrorT WhebError 
+  { runWhebT :: ExceptT WhebError 
                   (ReaderT (HandlerData g s m) (StateT (InternalState s) m)) a 
   } deriving ( Functor, Applicative, Monad, MonadIO )
 
@@ -81,12 +82,10 @@ data WhebError = Error500 String
                | URLError T.Text UrlBuildError
   deriving (Show)
 
-instance Error WhebError where 
-    strMsg = Error500
-
 -- | Monoid to use in InitM's WriterT
 data InitOptions g s m =
   InitOptions { initRoutes      :: [ Route g s m ]
+              , initWhebSockets :: [ SocketRoute g s m ]
               , initSites       :: [ PackedSite g s m ]
               , initSettings    :: CSettings
               , initWaiMw       :: Middleware
@@ -94,18 +93,20 @@ data InitOptions g s m =
               , initCleanup     :: [ IO () ] }
 
 instance Monoid (InitOptions g s m) where
-  mappend (InitOptions a1 s1 b1 c1 d1 e1) (InitOptions a2 s2 b2 c2 d2 e2) = 
-      InitOptions (a1 <> a2) 
+  mappend (InitOptions a1 ws1 s1 b1 c1 d1 e1) (InitOptions a2 ws2 s2 b2 c2 d2 e2) = 
+      InitOptions (a1 <> a2)
+                  (ws1 <> ws2)
                   (s1 <> s2)
                   (b1 <> b2)
                   (c2 . c1) 
                   (d1 <> d2) 
                   (e1 <> e2)
-  mempty = InitOptions mempty mempty mempty id mempty mempty
+  mempty = InitOptions mempty mempty mempty mempty id mempty mempty
 
 -- | The main option datatype for Wheb
 data WhebOptions g s m = MonadIO m => 
   WhebOptions { appRoutes           :: [ Route g s m ]
+              , appWhebSockets      :: [ SocketRoute g s m ]
               , appSites            :: [ PackedSite g s m ]
               , runTimeSettings     :: CSettings
               , warpSettings        :: Warp.Settings
@@ -125,6 +126,7 @@ type CSettings = M.Map T.Text SettingsValue
 type WhebHandler g s      = WhebT g s IO HandlerResponse
 type WhebHandlerT g s m   = WhebT g s m HandlerResponse
 type WhebMiddleware g s m = WhebT g s m (Maybe HandlerResponse)
+type WhebSocket g s m     = Connection -> WhebT g s m ()
 
 -- | A minimal type for WhebT
 type MinWheb a = WhebT () () IO a
@@ -156,6 +158,11 @@ data Route g s m = Route
   , routeMethod  :: MethodMatch
   , routeParser  :: UrlParser
   , routeHandler :: (WhebHandlerT g s m) }
+
+data SocketRoute g s m = SocketRoute
+  { srouteParser  :: UrlParser
+  , srouteHandler :: WhebSocket g s m
+  }
 
 data ChunkType = IntChunk | TextChunk
   deriving (Show)

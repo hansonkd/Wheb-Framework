@@ -33,7 +33,7 @@ module Web.Wheb.Plugins.Auth
   , getUserSessionKey
   ) where
 
-import Control.Monad.Error (liftM, MonadError(throwError), MonadIO(..))
+import Control.Monad.Except (liftM, MonadError(throwError), MonadIO(..))
 import Crypto.PasswordStore (makePassword, verifyPassword)
 import Data.Text.Encoding as ES (decodeUtf8, encodeUtf8)
 import Data.Text.Lazy as T (fromStrict, pack, Text, toStrict)
