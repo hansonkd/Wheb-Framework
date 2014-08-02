@@ -46,8 +46,8 @@ module Web.Wheb.WhebT
   -- * Running Wheb
   , runWhebServer
   , runWhebServerT
-  , debugHandler
-  , debugHandlerT
+  , runRawHandler
+  , runRawHandlerT
   ) where
 
 import Blaze.ByteString.Builder (Builder)
@@ -248,20 +248,20 @@ redirect c = do
 -- * Running a Wheb Application
 
 -- | Running a Handler with a custom Transformer
-debugHandlerT :: WhebOptions g s m ->
+runRawHandlerT :: WhebOptions g s m ->
              (m (Either WhebError a) -> IO (Either WhebError a)) ->
              Request ->
              WhebT g s m a ->
              IO (Either WhebError a)
-debugHandlerT opts@(WhebOptions {..}) runIO r h = 
+runRawHandlerT opts@(WhebOptions {..}) runIO r h = 
     runIO $ runDebugHandler opts h baseData
     where baseData = HandlerData startingCtx r ([], []) [] opts
 
--- | Convenience wrapper for 'debugHandlerT' function in 'IO'
-debugHandler :: WhebOptions g s IO -> 
+-- | Convenience wrapper for 'runRawHandlerT' function in 'IO'
+runRawHandler :: WhebOptions g s IO -> 
               WhebT g s IO a ->
               IO (Either WhebError a)
-debugHandler opts h = debugHandlerT opts id defaultRequest h
+runRawHandler opts h = runRawHandlerT opts id defaultRequest h
 
 -- | Run a server with a function to run your inner Transformer to IO and 
 -- generated options
