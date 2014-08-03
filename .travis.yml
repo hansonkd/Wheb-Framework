@@ -17,3 +17,4 @@ script:
   - ghc -c examples/Routes.hs
   - ghc -c examples/Stateful.hs
   - ghc -c examples/WebRoutes.hs
+  - ghc -c examples/WebSockets.hs

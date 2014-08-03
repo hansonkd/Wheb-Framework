@@ -104,11 +104,21 @@ Now test:
 $ curl http://localhost:3000/echo/hello
 Msg was: hello
 ```
+
+### Named routes
+
+So what if you wanted to generate the path back to the handleEcho handler? With named routes, it's pretty easy:
+
+```haskell
+handleHome :: MinHandler
+handleHome = do
+  url <- getRoute "echo" [("msg", MkChunk ("My Awesome message" :: T.Text))] 
+  html $ "<html><body><a href=\"" <> url <> "\">Echo My Awesome message</a></body></html>!"
+```
+
 ### Use the same context for everything
 
-Wheb lets you use the `WhebT` context on any level using the `runRawHandler`. This can be useful for setup tasks or debugging.
-
-
+Wheb lets you use the `WhebT` context on any level using the `runRawHandler`. This can be useful for setup tasks, management commands or debugging.
 
 
 ### WebSockets
@@ -132,7 +142,7 @@ import           Network.WebSockets as W
 data MyApp = MyApp (TChan B.ByteString)
 data MyHandlerData = MyHandlerData (TChan B.ByteString)
 
--- | This duplicates the connection for 
+-- | This duplicates the connection for new Users
 tchanMw :: MonadIO m => WhebMiddleware MyApp MyHandlerData m
 tchanMw = do
   (MyApp chan) <- getApp
@@ -170,18 +180,6 @@ main = do
 
   runWhebServer opts
 
-```
-
-
-### Named routes
-
-So what if you wanted to generate the path back to the handleEcho handler? With named routes, it's pretty easy:
-
-```haskell
-handleHome :: MinHandler
-handleHome = do
-  url <- getRoute "echo" [("msg", MkChunk ("My Awesome message" :: T.Text))] 
-  html $ "<html><body><a href=\"" <> url <> "\">Echo My Awesome message</a></body></html>!"
 ```
 
 ## Global contexts and Handler State.
