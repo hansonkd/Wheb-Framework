@@ -36,7 +36,9 @@ optsToApplication opts@(WhebOptions {..}) runIO r respond = do
               case (findSocketMatch pathChunks appWhebSockets) of
                   Just (h, params) -> do
                       c <- W.acceptRequest pc
-                      void $ runIO $ runDebugHandler opts (h c) (baseData { routeParams = params })
+                      void $ runIO $ do
+                            (mRes, st) <- runMiddlewares opts whebMiddlewares baseData
+                            runDebugHandler (opts {startingState = st}) (h c) (baseData { routeParams = params })
                   Nothing -> W.rejectRequest pc (B.pack "No socket for path.")
 
         handleMain r respond = do
