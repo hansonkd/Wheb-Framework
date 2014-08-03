@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards, RankNTypes #-}
 
 module Web.Wheb.WhebT
   (
@@ -19,6 +19,7 @@ module Web.Wheb.WhebT
   , text
   , file
   , builder
+  , redirect
   
   -- * Settings
   , getSetting
@@ -45,41 +46,38 @@ module Web.Wheb.WhebT
   -- * Running Wheb
   , runWhebServer
   , runWhebServerT
-  , debugHandler
-  , debugHandlerT
+  , runRawHandler
+  , runRawHandlerT
   ) where
 
-import           Blaze.ByteString.Builder (Builder)
-import           Control.Concurrent
-import           Control.Concurrent.STM
-import           Control.Exception as E
-import           Control.Monad.Error
-import           Control.Monad.IO.Class
-import           Control.Monad.Reader
-import           Control.Monad.State
-
-import qualified Data.ByteString.Lazy as LBS
-import           Data.CaseInsensitive (mk)
-import qualified Data.Map as M
-import           Data.Maybe (fromMaybe)
-import qualified Data.Text.Lazy as T
-import           Data.Typeable (Typeable, cast)
-import           Data.List (find)
-
-import           Network.HTTP.Types.Header
-import           Network.HTTP.Types.Status
-import           Network.HTTP.Types.URI
-import           Network.Wai
-import           Network.Wai.Handler.Warp as W
-import           Network.Wai.Parse
-
-import           System.Posix.Signals (installHandler, Handler(Catch), 
-                                       sigINT, sigTERM)
-
-import           Web.Wheb.Internal
-import           Web.Wheb.Routes
-import           Web.Wheb.Types
-import           Web.Wheb.Utils
+import Blaze.ByteString.Builder (Builder)
+import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent.STM (atomically, readTVar, newTVarIO, writeTVar)
+import Control.Monad.Error (liftM, MonadError(throwError), MonadIO, void)
+import Control.Monad.Reader (MonadReader(ask))
+import Control.Monad.State (modify, MonadState(get))
+import qualified Data.ByteString.Lazy as LBS (ByteString, empty)
+import Data.CaseInsensitive (mk)
+import Data.List (find)
+import qualified Data.Map as M (insert, lookup)
+import Data.Maybe (fromMaybe)
+import qualified Data.Text.Lazy as T (pack, empty, Text)
+import Data.Typeable (cast, Typeable)
+import Network.HTTP.Types.Header (Header)
+import Network.HTTP.Types.Status (serviceUnavailable503, status200, status302)
+import Network.HTTP.Types.URI (Query)
+import Network.Wai (defaultRequest, Request(queryString, requestHeaders), responseLBS)
+import Network.Wai.Handler.Warp as W (runSettings, setPort)
+import Network.Wai.Parse (File, Param)
+import System.Posix.Signals (Handler(Catch), installHandler, sigINT, sigTSTP, sigTERM)
+import Web.Wheb.Internal (optsToApplication, runDebugHandler)
+import Web.Wheb.Routes (generateUrl, getParam)
+import Web.Wheb.Types (CSettings, EResponse, HandlerData(HandlerData, globalCtx, globalSettings, postData, request, routeParams), 
+                       HandlerResponse(HandlerResponse), InternalState(InternalState, reqState, respHeaders), 
+                       Route(..), RouteParamList, SettingsValue(..), 
+                       UrlBuildError(UrlNameNotFound), WhebError(RouteParamDoesNotExist, URLError), 
+                       WhebFile(WhebFile), WhebHandlerT, WhebOptions(..), WhebT(WhebT))
+import Web.Wheb.Utils (lazyTextToSBS, sbsToLazyText)
 
 -- * ReaderT and StateT Functionality
 
@@ -151,11 +149,11 @@ getRouteParam' t = liftM (getParam t) getRouteParams
 
 -- | Convert 'Either' from 'getRoute'' into an error in the Monad
 getRoute :: Monad m => T.Text -> RouteParamList ->  WhebT g s m T.Text
-getRoute t l = do
-        res <- getRoute' t l
+getRoute name l = do
+        res <- getRoute' name l
         case res of
             Right t  -> return t
-            Left err -> throwError $ URLError t err
+            Left err -> throwError $ URLError name err
 
 -- | Generate a route from a name and param list.
 getRoute' :: Monad m => T.Text -> 
@@ -169,7 +167,7 @@ getRoute' n l = liftM buildRoute (getRawRoute n l)
 getRawRoute :: Monad m => T.Text -> 
              RouteParamList -> 
              WhebT g s m (Maybe (Route g s m))
-getRawRoute n l = WhebT $ liftM f ask  
+getRawRoute n _ = WhebT $ liftM f ask  
     where findRoute (Route {..}) = fromMaybe False (fmap (==n) routeName)  
           f = ((find findRoute) . appRoutes . globalSettings)    
 
@@ -240,35 +238,44 @@ builder :: Monad m => T.Text -> Builder -> WhebHandlerT g s m
 builder c b = do
     setHeader (T.pack "Content-Type") c 
     return $ HandlerResponse status200 b
+
+-- | Redirect to a given URL
+redirect :: Monad m => T.Text -> WhebHandlerT g s m
+redirect c = do
+    setHeader (T.pack "Location") c
+    return $ HandlerResponse status302 T.empty
     
 -- * Running a Wheb Application
 
 -- | Running a Handler with a custom Transformer
-debugHandlerT :: WhebOptions g s m ->
+runRawHandlerT :: WhebOptions g s m ->
              (m (Either WhebError a) -> IO (Either WhebError a)) ->
              Request ->
              WhebT g s m a ->
              IO (Either WhebError a)
-debugHandlerT opts@(WhebOptions {..}) runIO r h = 
+runRawHandlerT opts@(WhebOptions {..}) runIO r h = 
     runIO $ runDebugHandler opts h baseData
     where baseData = HandlerData startingCtx r ([], []) [] opts
 
--- | Convenience wrapper for 'debugHandlerT' function in 'IO'
-debugHandler :: WhebOptions g s IO -> 
+-- | Convenience wrapper for 'runRawHandlerT' function in 'IO'
+runRawHandler :: WhebOptions g s IO -> 
               WhebT g s IO a ->
               IO (Either WhebError a)
-debugHandler opts h = debugHandlerT opts id defaultRequest h
+runRawHandler opts h = runRawHandlerT opts id defaultRequest h
 
 -- | Run a server with a function to run your inner Transformer to IO and 
 -- generated options
-runWhebServerT :: (m EResponse -> IO EResponse) ->
+runWhebServerT :: (forall a . m a -> IO a) ->
                   WhebOptions g s m ->
                   IO ()
 runWhebServerT runIO opts@(WhebOptions {..}) = do
     putStrLn $ "Now running on port " ++ (show $ port)
 
+    forceTVar <- newTVarIO False
+
     installHandler sigINT catchSig Nothing
     installHandler sigTERM catchSig Nothing
+    installHandler sigTSTP (Catch (atomically $ writeTVar forceTVar True >> writeTVar shutdownTVar True)) Nothing
 
     forkIO $ runSettings rtSettings $
         gracefulExit $
@@ -276,7 +283,8 @@ runWhebServerT runIO opts@(WhebOptions {..}) = do
         optsToApplication opts runIO
 
     loop
-    waitForConnections
+    putStrLn $ "Waiting for connections to close..."
+    waitForConnections forceTVar
     putStrLn $ "Shutting down server..."
     sequence_ cleanupActions
 
@@ -289,14 +297,15 @@ runWhebServerT runIO opts@(WhebOptions {..}) = do
           case isExit of
               False -> app r respond
               True  -> respond $ responseLBS serviceUnavailable503 [] LBS.empty
-        waitForConnections = do
+        waitForConnections forceTVar = do
           openConnections <- atomically $ readTVar activeConnections
-          if (openConnections > 0)
-            then waitForConnections
-            else return ()
+          force <- atomically $ readTVar forceTVar
+          if (openConnections == 0 || force)
+            then return ()
+            else waitForConnections forceTVar
         port = fromMaybe 3000 $ 
           (M.lookup (T.pack "port") runTimeSettings) >>= (\(MkVal m) -> cast m)
-        rtSettings = warpSettings { W.settingsPort = port }
+        rtSettings = W.setPort port warpSettings
 
 -- | Convenience wrapper for 'runWhebServerT' function in IO
 runWhebServer :: (WhebOptions g s IO) -> IO ()

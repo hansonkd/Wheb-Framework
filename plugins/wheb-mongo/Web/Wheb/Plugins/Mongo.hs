@@ -7,46 +7,6 @@ Basic implementation of MongoDB connection.
 
 Adds default instances for 'SessionApp' and 'AuthApp' for 'MongoApp'.
 
-You can override the collection names for the Auth and Session documents by using 'addSetting' and setting keys for \"session-collection\"
-and \"auth-collection\"
-
-> opts <- generateOptions $ do
->    addSetting "session-collection" "my-collection"
-
-Reimplimentation of official example below. Use with language extensions /OvererloadedStrings/ & /ExtendedDefaultRules/.
-
->  import qualified Data.Text.Lazy as T
->  
->  import           Web.Wheb
->  import           Web.Wheb.Plugins.Mongo
->  
->  data MyApp = MyApp MongoContainer
->  data MyRequestState = MyRequestState
->  
->  instance MongoApp MyApp where
->      getMongoContainer (MyApp mc) = mc
->  
->  homePage :: WhebHandler MyApp MyRequestState
->  homePage = do
->      mongoRes <- runAction $ do
->          delete (select [] "team")
->          insertMany "team" [
->              ["name" =: "Yankees", "home" =: ["city" =: "New York", "state" =: "NY"], "league" =: "American"],
->              ["name" =: "Mets", "home" =: ["city" =: "New York", "state" =: "NY"], "league" =: "National"],
->              ["name" =: "Phillies", "home" =: ["city" =: "Philadelphia", "state" =: "PA"], "league" =: "National"],
->              ["name" =: "Red Sox", "home" =: ["city" =: "Boston", "state" =: "MA"], "league" =: "American"] ]
->          rest =<< find (select [] "team") {sort = ["home.city" =: 1]}
->      case mongoRes of
->          Left err -> text $ spack err
->          Right teams -> text $ T.intercalate " | " $ map spack teams
->  
->  main :: IO ()
->  main = do
->    opts <- generateOptions $ do
->      addGET "." rootPat $ homePage
->      mongo <- initMongo "127.0.0.1:27017" "master"
->      return (MyApp mongo, MyRequestState)
->    runWhebServer opts
 -}
 
 module Web.Wheb.Plugins.Mongo (
@@ -60,7 +20,7 @@ module Web.Wheb.Plugins.Mongo (
 
 import           Control.Exception
 import           Control.Monad
-import           Control.Monad.Error (throwError)
+import           Control.Monad.Except (throwError)
 import           Data.Bson as B
 import qualified Data.Text.Lazy as T
 import           Database.MongoDB

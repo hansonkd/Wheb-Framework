@@ -4,15 +4,17 @@ The Frictionless Haskell WAI Framework
 
 ### About
 
-
 Wheb's a framework for building robust, high-concurrency web applications simply and effectively. Its primary goal is to extend the functionality of the base WAI library and to provide an easy entry point into Haskell web servers. The only prerequisite is "Learn you a Haskell" or another introductory Haskell course.
+
+Wheb focuses on having a central datastructure for every part of your application. Some frameworks force you into IO for extensions like websockets where you lose the tools in your application monad. Everything in Wheb is built off of the WhebT Transformer. That means your terminal management commands, HTTP Handlers and WebSockets all have one datatype. Build a plugin once, use it everywhere.
 
 ### Features
 
 * The core datatype will let you build anything from a read-only server to a fully interactive web application with basic Haskell.
 * Minimal boilerplate to start your application.
-* Named routes and URL generation (though it was a trade-off between named and type-safe urls).
+* Choice between type-safe web-routes or simpler pattern-based named-routes.
 * Easy to use for REST APIs
+* WebSockets
 * Fully database and template agnostic
 * Easy handler debugging.
 * Middleware
@@ -27,7 +29,7 @@ Examples of plugins:
 * Sessions
 * Auth
 * [Wheb-Mongo](http://hackage.haskell.org/package/wheb-mongo)
-
+* [Wheb-Strapped](http://hackage.haskell.org/package/wheb-strapped)
 
 Getting Started
 ---------------
@@ -68,7 +70,7 @@ handleHome :: MinHandler
 handleHome = text $ "Hello World!"
 ```
 
-Now our handler needs a route. We assign routes inside the `InitM` monad which builds our options. Wheb uses named routes and has some convenience functions for adding them to match their HTTP methods: `addGET`, `addPOST`, `addPUT` and `addDELETE`. `rootPat` is a `UrlPat` that matches on the root directory, `/`.
+Now our handler needs a route. We assign routes inside the `InitM` monad which builds our options. Wheb uses named routes and has some convenience functions for adding them to match their HTTP methods: `addGET`, `addPOST`, `addPUT` and `addDELETE`. `rootPat` is a `UrlPat` that matches on the root directory, `/`. If you want to use type-safe [web-routes](http://hackage.haskell.org/package/web-routes), there is full support for that with the `addSite` function. See `WebRoutes.hs` in examples for more information.
 
 ``` haskell
 opts <- genMinOpts $ do
@@ -115,6 +117,71 @@ handleHome = do
   html $ "<html><body><a href=\"" <> url <> "\">Echo My Awesome message</a></body></html>!"
 ```
 
+### Use the same context for everything
+
+Wheb lets you use the `WhebT` context on any level using the `runRawHandler`. This can be useful for setup tasks, management commands or debugging.
+
+
+### WebSockets
+
+Wheb has built in support for WebSockets. It allows you to use the same `WhebT` Monad in both Websockets and normal HTTP.
+
+Here is an example of a dead simple chat application using `TChan`
+
+```haskell
+{-# LANGUAGE OverloadedStrings #-}
+
+import           Control.Monad
+import           Control.Concurrent.STM
+import           Control.Concurrent.STM.TChan
+import           Control.Monad.IO.Class
+import           Data.Monoid
+import qualified Data.ByteString.Lazy as B
+import           Web.Wheb
+import           Network.WebSockets as W
+
+data MyApp = MyApp (TChan B.ByteString)
+data MyHandlerData = MyHandlerData (TChan B.ByteString)
+
+-- | This duplicates the connection for new Users
+tchanMw :: MonadIO m => WhebMiddleware MyApp MyHandlerData m
+tchanMw = do
+  (MyApp chan) <- getApp
+  newChan <- liftIO $ atomically $ dupTChan chan
+  putHandlerState (MyHandlerData newChan)
+  return Nothing
+
+readHandler :: W.Connection -> WhebT MyApp MyHandlerData IO ()
+readHandler c = do
+    (MyHandlerData chan) <- getHandlerState
+    forever $ liftIO $ do
+        msg <- atomically $ readTChan chan
+        W.sendTextData c msg
+
+writeHandler :: W.Connection -> WhebT MyApp MyHandlerData IO ()
+writeHandler c = do
+    (MyHandlerData chan) <- getHandlerState
+    forever $ liftIO $ do
+        msg <- W.receiveDataMessage c
+        let bmsg = case msg of
+              W.Text m -> m
+              W.Binary m -> m
+        atomically $ writeTChan chan bmsg
+
+main :: IO ()
+main = do
+  opts <- generateOptions $ do
+            addWhebMiddleware tchanMw
+            startingChan <- liftIO $ newTChanIO
+
+            addWhebSocket (rootPat </> "read") readHandler
+            addWhebSocket (rootPat </> "write") writeHandler
+
+            return $ (MyApp startingChan, MyHandlerData startingChan)
+
+  runWhebServer opts
+```
+
 ## Global contexts and Handler State.
 
 Getting URL parameters really isn't interesting either since we aren't really changing anything, so lets add a global context. There are two main parts of a handler's signature `WhebHandlerT g s m`, `g` and `s`. `g` refers to the read-only global context that holds thread-safe resources to share between requests. `s` is the handler state that is request specific.
@@ -134,7 +201,7 @@ import qualified Data.Text.Lazy as T
 
 data MyApp = MyApp T.Text
 data MyState = MyState
-type MyHandler = WhebHandler MyApp MyState
+type MyHandler = WhebHandler MyApp MyState 
 
 handleHome :: MyHandler
 handleHome = text $ "Hello World!"
@@ -177,7 +244,7 @@ handleHome = do
   text $ "Start state: " <> (spack state) <> ". End state: " <> (spack state2)
 
 ...
-  
+
    opts <- generateOptions $ do
           addGET "home" rootPat handleHome
           return (MyApp "Tutorial App", MyState "In the beginning.")

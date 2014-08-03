@@ -8,20 +8,17 @@ module Web.Wheb.Cookie
   , removeCookie
   ) where
     
-import qualified Data.ByteString as BS
-import qualified Blaze.ByteString.Builder as B
-import           Data.Maybe (fromMaybe)
-import           Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy as T
-import qualified Data.Text.Lazy.Encoding as T
-import           Data.Time.Calendar
-import           Data.Time.Clock
-import           Web.Cookie
-
-import           Web.Wheb.Types
-import           Web.Wheb.Internal
-import           Web.Wheb.WhebT
-import           Web.Wheb.Utils
+import qualified Blaze.ByteString.Builder as B (toByteString)
+import Data.Maybe (fromMaybe)
+import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as T (empty, fromStrict, toStrict)
+import Data.Time.Calendar (Day(ModifiedJulianDay))
+import Data.Time.Clock (secondsToDiffTime, UTCTime(UTCTime))
+import Web.Cookie (CookiesText, def, parseCookiesText, renderSetCookie, 
+                   SetCookie(setCookieExpires, setCookieName, setCookieValue))
+import Web.Wheb.Types (WhebT)
+import Web.Wheb.Utils (lazyTextToSBS)
+import Web.Wheb.WhebT (getRequestHeader, setRawHeader)
 
 getDefaultCookie :: Monad m => WhebT g s m SetCookie
 getDefaultCookie = return def -- Populate with settings...

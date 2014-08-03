@@ -37,7 +37,7 @@ main = do
     -- Match regardless of type.
     catchAll $ myHandler "Anything"
 
-  debugHandler opts $ do
+  runRawHandler opts $ do
     liftIO $ putStrLn "Testing routes..."
     forM_ routeList (\(rn, p) -> (liftIO . print) =<< getRoute rn p)
     rs <- forM routeList (\(rn, p) -> do

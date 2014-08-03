@@ -1,11 +1,13 @@
 language: haskell
-ghc: 7.
+ghc: 7.8
 install:
   - cabal install wheb-base/Wheb.cabal --enable-tests
   - cabal install plugins/wheb-mongo/wheb-mongo.cabal --enable-tests
+  - cabal install plugins/wheb-strapped/wheb-strapped.cabal --enable-tests
   - cabal install blaze-html
+  - cabal install web-routes-boomerang
 script:
-  - cd wheb-base && cabal configure --enable-tests && cabal build && cabal test
+  - cd wheb-base && cabal configure -v0 --enable-tests && cabal build -v0 && cabal test
   - cd ..
   - ghc -c examples/Blaze.hs
   - ghc -c examples/File.hs
@@ -14,3 +16,5 @@ script:
   - ghc -c examples/Mongo.hs
   - ghc -c examples/Routes.hs
   - ghc -c examples/Stateful.hs
+  - ghc -c examples/WebRoutes.hs
+  - ghc -c examples/WebSockets.hs

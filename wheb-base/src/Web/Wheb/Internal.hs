@@ -1,44 +1,66 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards, RankNTypes #-}
 
 module Web.Wheb.Internal where
 
-import           Control.Monad.Error
-import           Control.Monad.IO.Class
-import           Control.Monad.Reader
-import           Control.Monad.State
-import           Control.Monad.Writer
-import qualified Data.Map as M
-import qualified Data.Text.Lazy as T
-
-import           Network.HTTP.Types.Method
-import           Network.Wai
-import           Network.Wai.Parse
-
-import           Web.Wheb.Routes
-import           Web.Wheb.Types
-import           Web.Wheb.Utils
+import qualified Data.ByteString.Char8 as B
+import Control.Monad (void)
+import Control.Monad.Except (ExceptT, runExceptT)
+import Control.Monad.Reader (ReaderT(runReaderT))
+import Control.Monad.State (evalStateT, StateT(runStateT))
+import qualified Data.Map as M (toList)
+import qualified Data.Text.Lazy as T (fromStrict, Text, toStrict, pack)
+import Network.HTTP.Types.Method (parseMethod, StdMethod(GET))
+import Network.Wai (Application, Request(pathInfo, requestMethod), Response)
+import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
+import Network.Wai.Handler.WebSockets (websocketsOr)
+import qualified Network.WebSockets as W
+import Web.Wheb.Routes (findUrlMatch, findSiteMatch, findSocketMatch)
+import Web.Wheb.Types (EResponse, HandlerData(HandlerData, postData, routeParams),
+                       HandlerResponse(HandlerResponse), InternalState(..), 
+                       WhebContent(toResponse), WhebError(Error404), WhebHandlerT, 
+                       WhebMiddleware, WhebOptions(..), WhebT(runWhebT))
+import Web.Wheb.Utils (uhOh)
 
 -- * Converting to WAI application
                       
 -- | Convert 'WhebOptions' to 'Application'                        
 optsToApplication :: WhebOptions g s m ->
-                     (m EResponse -> IO EResponse) ->
+                     (forall a. m a -> IO a) ->
                      Application
 optsToApplication opts@(WhebOptions {..}) runIO r respond = do
-  pData <- parseRequestBody lbsBackEnd r
-  res <- runIO $ do
-          let mwData = baseData { postData = pData }
-          (mRes, st) <- runMiddlewares opts whebMiddlewares mwData
-          case mRes of
-              Just resp -> return $ Right resp
-              Nothing -> case (findUrlMatch stdMthd pathChunks appRoutes) of
-                        Just (h, params) -> do
-                            let hData = mwData { routeParams = params }
-                            runWhebHandler opts h st hData 
-                        Nothing          -> return $ Left Error404
-  finished <- either handleError return res
-  respond finished
-  where baseData   = HandlerData startingCtx r ([], []) [] opts
+  if ((length appWhebSockets) > 0)
+    then websocketsOr W.defaultConnectionOptions socketHandler handleMain r respond
+    else handleMain r respond
+
+  where socketHandler pc = do
+              case (findSocketMatch pathChunks appWhebSockets) of
+                  Just (h, params) -> do
+                      c <- W.acceptRequest pc
+                      void $ runIO $ do
+                            (mRes, st) <- runMiddlewares opts whebMiddlewares baseData
+                            runDebugHandler (opts {startingState = st}) (h c) (baseData { routeParams = params })
+                  Nothing -> W.rejectRequest pc (B.pack "No socket for path.")
+
+        handleMain r respond = do
+            pData <- parseRequestBody lbsBackEnd r
+            res <- runIO $ do
+                    let mwData = baseData { postData = pData }
+                    (mRes, st) <- runMiddlewares opts whebMiddlewares mwData
+                    case mRes of
+                        Just resp -> return $ Right resp
+                        Nothing -> do
+                            case (findSiteMatch appSites pathChunks) of
+                              Just h -> do
+                                runWhebHandler opts h st mwData
+                              Nothing -> do
+                                  case (findUrlMatch stdMthd pathChunks appRoutes) of
+                                        Just (h, params) -> do
+                                            let hData = mwData { routeParams = params }
+                                            runWhebHandler opts h st hData 
+                                        Nothing          -> return $ Left Error404
+            finished <- either handleError return res
+            respond finished
+        baseData   = HandlerData startingCtx r ([], []) [] opts
         pathChunks = fmap T.fromStrict $ pathInfo r
         stdMthd    = either (\_-> GET) id $ parseMethod $ requestMethod r
         runErrorHandler eh = runWhebHandler opts eh startingState baseData
@@ -55,10 +77,10 @@ runWhebHandler :: Monad m =>
                     InternalState s ->
                     HandlerData g s m ->
                     m EResponse
-runWhebHandler opts@(WhebOptions {..}) handler st hd = do
+runWhebHandler (WhebOptions {..}) handler st hd = do
   (resp, InternalState {..}) <- flip runStateT st $ do
             flip runReaderT hd $
-              runErrorT $
+              runExceptT $
               runWhebT handler
   return $ fmap (convertResponse respHeaders) resp 
   where convertResponse hds (HandlerResponse status resp) =
@@ -73,10 +95,9 @@ runDebugHandler :: Monad m =>
 runDebugHandler opts@(WhebOptions {..}) handler hd = do
   flip evalStateT startingState $ do
             flip runReaderT hd $
-              runErrorT $
+              runExceptT $
               runWhebT handler
-  where convertResponse hds (HandlerResponse status resp) =
-                          toResponse status (M.toList hds) resp
+
 -- * Running Middlewares
  
 -- | Runs middlewares in order, stopping if one returns a response
@@ -90,7 +111,7 @@ runMiddlewares opts mWs hd = loop mWs (startingState opts)
           loop (mw:mws) st = do
                   mwResult <-  (runWhebMiddleware opts st hd mw)
                   case mwResult of
-                        (Just resp, nst) -> return mwResult
+                        (Just _, _) -> return mwResult
                         (Nothing, nst)   -> loop mws nst
 
 runWhebMiddleware :: Monad m =>
@@ -99,10 +120,10 @@ runWhebMiddleware :: Monad m =>
                     HandlerData g s m ->
                     WhebMiddleware g s m ->
                     m (Maybe Response, InternalState s)
-runWhebMiddleware opts@(WhebOptions {..}) st hd mW = do
+runWhebMiddleware (WhebOptions {..}) st hd mW = do
         (eresp, is@InternalState {..}) <- flip runStateT st $ do
                   flip runReaderT hd $
-                    runErrorT $
+                    runExceptT $
                     runWhebT mW
         return $ (convertResponse respHeaders eresp, is)
   where convertResponse hds (Right (Just (HandlerResponse status resp))) =

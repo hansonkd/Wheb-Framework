@@ -16,22 +16,20 @@ module Web.Wheb.Plugins.Session
   , clearSessionKey
   ) where
     
-import Control.Monad.IO.Class
 import Control.Monad (liftM)
-import Data.Maybe
-import Data.Text.Lazy (Text, pack)
-import Data.Text.Lazy.Encoding as T
-import Data.UUID
-import Data.UUID.V4
-
-import Web.Wheb
-import Web.Wheb.Cookie
-import Web.Wheb.Types
+import Control.Monad.IO.Class (MonadIO(..))
+import Data.Maybe (fromMaybe)
+import Data.Text.Lazy (pack, Text)
+import Data.Text.Lazy.Encoding as T (decodeUtf8)
+import Data.UUID (toLazyASCIIBytes)
+import Data.UUID.V4 (nextRandom)
+import Web.Wheb (getWithApp, WhebT)
+import Web.Wheb.Cookie (getCookie, setCookie)
 
 -- | Initial pass on abstract plugin for Sessions.
 --   Possibly add support for Typable to ease typecasting.
 
-
+session_cookie_key :: Text
 session_cookie_key = pack "-session-"
 
 data SessionContainer = forall r. SessionBackend r => SessionContainer r

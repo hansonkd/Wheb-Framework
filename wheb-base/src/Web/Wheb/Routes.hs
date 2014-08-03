@@ -17,23 +17,24 @@ module Web.Wheb.Routes
   , matchUrl
   , generateUrl
   , findUrlMatch
-
+  , findSocketMatch
+  , findSiteMatch
   -- * Utilities
   , testUrlParser
   ) where
   
-import qualified Data.Text.Lazy as T
-import           Data.Text.Lazy.Read
-import           Data.Maybe (isJust)
-import           Data.Typeable
-import           Network.HTTP.Types.Method
-import           Network.HTTP.Types.URI
-
-import           Data.Maybe (fromJust)
-import           Data.Monoid ((<>))
-
-import           Web.Wheb.Types
-import           Web.Wheb.Utils
+import Data.Monoid ((<>))
+import qualified Data.Text.Lazy as T (fromStrict, null, pack, Text, toStrict)
+import Data.Text.Lazy.Read (decimal, Reader)
+import Data.Typeable (cast, Typeable)
+import Network.HTTP.Types.Method (StdMethod)
+import Network.HTTP.Types.URI (decodePathSegments, encodePathSegments)
+import Web.Routes (runSite)
+import Web.Wheb.Types (ChunkType(..), ParsedChunk(..), Route(Route), RouteParamList, 
+                       UrlBuildError(NoParam, ParamTypeMismatch), UrlParser(UrlParser),
+                       UrlPat(Chunk, Composed, FuncChunk), WhebHandlerT, SocketRoute(SocketRoute), 
+                       PackedSite(..), WhebSocket)
+import Web.Wheb.Utils (builderToText, lazyTextToSBS, spack)
 
 -- | Build a 'Route' from a 'UrlPat'
 patRoute :: (Maybe T.Text) -> 
@@ -105,6 +106,22 @@ findUrlMatch rmtd path ((Route _ methodMatch (UrlParser f _) h):rs)
       | otherwise = case f path of
                         Just params -> Just (h, params)
                         Nothing -> findUrlMatch rmtd path rs
+
+-- | Sort through socket routes to find a match
+findSocketMatch :: [T.Text] -> [SocketRoute g s m] -> Maybe (WhebSocket g s m, RouteParamList)
+findSocketMatch _ [] = Nothing
+findSocketMatch path ((SocketRoute (UrlParser f _) h):rs) = 
+    case f path of
+        Just params -> Just (h, params)
+        Nothing -> findSocketMatch path rs
+
+findSiteMatch :: [PackedSite g s m] -> 
+                 [T.Text] -> 
+                 Maybe (WhebHandlerT g s m)
+findSiteMatch [] _ = Nothing
+findSiteMatch ((PackedSite t site):sites) cs = 
+  either (const (findSiteMatch sites cs)) Just $
+        runSite (T.toStrict t) site (map T.toStrict cs)
 
 -- | Test a parser to make sure it can match what it produces and vice versa
 testUrlParser :: UrlParser -> RouteParamList -> Bool

@@ -2,19 +2,15 @@
 
 module Web.Wheb.Utils where
 
-import           Blaze.ByteString.Builder (Builder
-                                          ,fromLazyByteString
-                                          ,toLazyByteString)
-import           Control.Monad
-import           Data.IORef
-import           Data.Monoid
-import qualified Data.Text.Lazy as T
-import qualified Data.Text.Lazy.Encoding as T
-import qualified Data.Text.Encoding as TS
-import           Network.HTTP.Types.Status
-import           Network.Wai
-
-import           Web.Wheb.Types
+import Blaze.ByteString.Builder (Builder, fromLazyByteString, toLazyByteString)
+import Data.IORef (atomicModifyIORef, newIORef, readIORef)
+import Data.Monoid ((<>), Monoid(mappend, mempty))
+import qualified Data.Text.Encoding as TS (decodeUtf8, encodeUtf8)
+import qualified Data.Text.Lazy as T (fromStrict, pack, Text, toStrict)
+import qualified Data.Text.Lazy.Encoding as T (decodeUtf8, encodeUtf8)
+import Network.HTTP.Types.Status (status500)
+import Network.Wai (Response, responseBuilder, responseFile, responseLBS, responseToStream)
+import Web.Wheb.Types (HandlerResponse(..), WhebContent(..), WhebError, WhebFile(..), WhebHandlerT)
 
 lazyTextToSBS = TS.encodeUtf8 . T.toStrict
 sbsToLazyText = T.fromStrict . TS.decodeUtf8

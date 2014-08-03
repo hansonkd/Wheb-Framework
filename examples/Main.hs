@@ -127,11 +127,11 @@ main = do
       return (GlobalApp sess auth, RequestState Nothing)
   
   -- | Ability to easily run your handlers w/o a server.
-  hResult <- debugHandler opts $ handleSimple "Hello from console!"
+  hResult <- runRawHandler opts $ handleSimple "Hello from console!"
   either print (\r -> (showResponseBody r) >>= print) hResult
   
   -- | Or simply debug some stuff.
-  debugHandler opts $ do
+  runRawHandler opts $ do
     liftIO $ putStrLn "Testing..."
     liftIO $ putStrLn "\n\nRoutes..."
     (liftIO . print) =<< getRoute' "blog_int" []
