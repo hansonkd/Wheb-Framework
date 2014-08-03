@@ -13,6 +13,7 @@ Wheb's a framework for building robust, high-concurrency web applications simply
 * Minimal boilerplate to start your application.
 * Choice between type-safe web-routes or simpler pattern-based named-routes.
 * Easy to use for REST APIs
+* WebSockets
 * Fully database and template agnostic
 * Easy handler debugging.
 * Middleware
@@ -103,6 +104,74 @@ Now test:
 $ curl http://localhost:3000/echo/hello
 Msg was: hello
 ```
+### Use the same context for everything
+
+Wheb lets you use the `WhebT` context on any level using the `runRawHandler`. This can be useful for setup tasks or debugging.
+
+
+
+
+### WebSockets
+
+Wheb has built in support for WebSockets. It allows you to use the same `WhebT` Monad in both Websockets and normal HTTP.
+
+Here is an example of a dead simple chat application using `TChan`
+
+```haskell
+{-# LANGUAGE OverloadedStrings #-}
+
+import           Control.Monad
+import           Control.Concurrent.STM
+import           Control.Concurrent.STM.TChan
+import           Control.Monad.IO.Class
+import           Data.Monoid
+import qualified Data.ByteString.Lazy as B
+import           Web.Wheb
+import           Network.WebSockets as W
+
+data MyApp = MyApp (TChan B.ByteString)
+data MyHandlerData = MyHandlerData (TChan B.ByteString)
+
+-- | This duplicates the connection for 
+tchanMw :: MonadIO m => WhebMiddleware MyApp MyHandlerData m
+tchanMw = do
+  (MyApp chan) <- getApp
+  newChan <- liftIO $ atomically $ dupTChan chan
+  putHandlerState (MyHandlerData newChan)
+  return Nothing
+
+readHandler :: WhebSocket MyApp MyHandlerData IO
+readHandler c = do
+    (MyHandlerData chan) <- getHandlerState
+    forever $ liftIO $ do
+        msg <- atomically $ readTChan chan
+        W.sendTextData c msg
+
+writeHandler :: WhebSocket MyApp MyHandlerData IO
+writeHandler c = do
+    (MyHandlerData chan) <- getHandlerState
+    forever $ liftIO $ do
+        msg <- W.receiveDataMessage c
+        let bmsg = case msg of
+              W.Text m -> m
+              W.Binary m -> m
+        atomically $ writeTChan chan bmsg
+
+main :: IO ()
+main = do
+  opts <- generateOptions $ do
+            addWhebMiddleware tchanMw
+            startingChan <- liftIO $ newTChanIO
+
+            addWhebSocket (rootPat </> "read") readHandler
+            addWhebSocket (rootPat </> "write") writeHandler
+
+            return $ (MyApp startingChan, MyHandlerData startingChan)
+
+  runWhebServer opts
+
+```
+
 
 ### Named routes
 
