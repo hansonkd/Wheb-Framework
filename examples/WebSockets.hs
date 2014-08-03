@@ -20,14 +20,14 @@ tchanMw = do
   putHandlerState (MyHandlerData newChan)
   return Nothing
 
-readHandler :: WhebSocket MyApp MyHandlerData IO
+readHandler :: W.Connection -> WhebT MyApp MyHandlerData IO ()
 readHandler c = do
     (MyHandlerData chan) <- getHandlerState
     forever $ liftIO $ do
         msg <- atomically $ readTChan chan
         W.sendTextData c msg
 
-writeHandler :: WhebSocket MyApp MyHandlerData IO
+writeHandler :: W.Connection -> WhebT MyApp MyHandlerData IO ()
 writeHandler c = do
     (MyHandlerData chan) <- getHandlerState
     forever $ liftIO $ do

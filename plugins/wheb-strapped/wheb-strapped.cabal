@@ -37,7 +37,7 @@ maintainer:          me@khanson.io
 -- A copyright notice.
 -- copyright:           
 
-category:            Text
+category:            Web
 
 build-type:          Simple
 
@@ -48,6 +48,37 @@ build-type:          Simple
 -- Constraint on the version of Cabal needed to build this package.
 cabal-version:       >=1.10
 
+description:
+  Implements basic functionality for:
+  .
+  * <http://hackage.haskell.org/package/StrappedTemplates StrappedTemplates>
+  .
+  * <http://hackage.haskell.org/package/Wheb Wheb>
+  .
+  /In action:/
+  .
+  Use with language extensions /OverloadedStrings/, /FlexibleInstances/, /MultiParamTypeClasses/
+  .
+  >  import           Control.Monad.Except
+  >
+  >  import           Web.Wheb
+  >  import           Web.Wheb.Plugins.Strapped
+  >  import           Text.Strapped
+  >
+  >  type MyApp = WhebT MyGlobalCtx () IO
+  > 
+  >  data MyGlobalCtx = MyGlobalCtx (StrappedContainer MyApp)
+  > 
+  >  instance StrappedApp MyGlobalCtx MyApp where
+  >      getStrappedContainer (MyGlobalCtx g) = g
+  > 
+  >  main :: IO ()
+  >  main = do
+  >   opts <- generateOptions $ do
+  >     sc <- initStrapped "examples/resources" ".html"
+  >     addGET "." rootPat $ renderTemplate "index.html" (emptyBucket)
+  >     return (MyGlobalCtx sc, ())
+  >   runWhebServer opts
 
 library
   -- Modules exported by the library.

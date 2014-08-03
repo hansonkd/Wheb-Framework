@@ -1,5 +1,5 @@
 name:                wheb-mongo
-version:             0.0.1.1
+version:             0.0.2.0
 synopsis:            MongoDB plugin for Wheb
 homepage:            https://github.com/hansonkd/Wheb-Framework
 license:             BSD3
@@ -12,11 +12,55 @@ cabal-version:       >=1.8
 description:         
   Wheb plugin for MongoDB.
   .
-  * Implements SessionBackend and AuthBackend instances using Mongo.
+  * Implements SessionBackend and AuthBackend instances using MongoDB and Wheb.
+  .
+  * Creates simple interface for arbitrary MongoDB actions using <http://hackage.haskell.org/package/Wheb Wheb> 
   .
   * Creates simple interface for arbitrary MongoDB actions using <http://hackage.haskell.org/package/mongoDB mongoDB> 
   .
   For a complete example, see the examples folder at <https://github.com/hansonkd/Wheb-Framework/tree/master/examples github>
+  . 
+  You can override the collection names for the Auth and Session documents by using 'addSetting' and setting keys for \"session-collection\"
+  and \"auth-collection\"
+  .
+  > opts <- generateOptions $ do
+  >    addSetting "session-collection" "my-collection"
+  .
+  Reimplimentation of official example below. Use with language extensions /OvererloadedStrings/ & /ExtendedDefaultRules/.
+  .
+  >  import qualified Data.Text.Lazy as T
+  >  
+  >  import           Web.Wheb
+  >  import           Web.Wheb.Plugins.Mongo
+  >  
+  >  data MyApp = MyApp MongoContainer
+  >  data MyRequestState = MyRequestState
+  >  
+  >  instance MongoApp MyApp where
+  >      getMongoContainer (MyApp mc) = mc
+  >  
+  >  homePage :: WhebHandler MyApp MyRequestState
+  >  homePage = do
+  >      teams <- runAction $ rest =<< find (select [] "team")
+  >      text $ T.intercalate " | " $ map spack teams
+  >  
+  >  main :: IO ()
+  >  main = do
+  >    opts <- generateOptions $ do
+  >      addGET "." rootPat $ homePage
+  >      mongo <- initMongo "127.0.0.1:27017" "master"
+  >      return (MyApp mongo, MyRequestState)
+  >
+  >    runRawHandler opts $ do
+  >      runAction $ do
+  >          delete (select [] "team")
+  >          insertMany "team" [
+  >              ["name" =: "Yankees", "home" =: ["city" =: "New York", "state" =: "NY"], "league" =: "American"],
+  >              ["name" =: "Mets", "home" =: ["city" =: "New York", "state" =: "NY"], "league" =: "National"],
+  >              ["name" =: "Phillies", "home" =: ["city" =: "Philadelphia", "state" =: "PA"], "league" =: "National"],
+  >              ["name" =: "Red Sox", "home" =: ["city" =: "Boston", "state" =: "MA"], "league" =: "American"] ]
+  >  
+  >    runWhebServer opts
 
 library
   exposed-modules:     Web.Wheb.Plugins.Mongo

@@ -1,11 +1,11 @@
 name:                Wheb
-version:             0.2.1.0
+version:             0.2.0.0
 synopsis:            The frictionless WAI Framework
 license:             BSD3
 license-file:        LICENSE
 author:              Kyle Hanson
 homepage:            https://github.com/hansonkd/Wheb-Framework
-maintainer:          hanooter@gmail.com
+maintainer:          me@khanson.io
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
@@ -16,9 +16,11 @@ description:
   .
   * Minimal boilerplate to start your application.
   .
-  * Named routes and URL generation (though it was a trade-off between named and type-safe urls).
+  * Typesafe web-routes or named routes and URL generation.
   .
   * Easy to use for REST APIs
+  .
+  * WebSockets
   .
   * Fully database and template agnostic
   .
@@ -40,6 +42,8 @@ description:
   * Auth
   .
   * <http://hackage.haskell.org/package/wheb-mongo Wheb-Mongo>
+  .
+  * <http://hackage.haskell.org/package/wheb-strapped Wheb-Strapped>
   .
   /Wheb in action:/
   .

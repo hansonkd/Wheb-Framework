@@ -4,8 +4,9 @@ The Frictionless Haskell WAI Framework
 
 ### About
 
-
 Wheb's a framework for building robust, high-concurrency web applications simply and effectively. Its primary goal is to extend the functionality of the base WAI library and to provide an easy entry point into Haskell web servers. The only prerequisite is "Learn you a Haskell" or another introductory Haskell course.
+
+Wheb focuses on having a central datastructure for every part of your application. Some frameworks force you into IO for extensions like websockets where you lose the tools in your application monad. Everything in Wheb is built off of the WhebT Transformer. That means your terminal management commands, HTTP Handlers and WebSockets all have one datatype. Build a plugin once, use it everywhere.
 
 ### Features
 
@@ -28,7 +29,7 @@ Examples of plugins:
 * Sessions
 * Auth
 * [Wheb-Mongo](http://hackage.haskell.org/package/wheb-mongo)
-* [Wheb-Strapped](http://hackage.haskell.org/package/wheb-mongo)
+* [Wheb-Strapped](http://hackage.haskell.org/package/wheb-strapped)
 
 Getting Started
 ---------------
@@ -150,14 +151,14 @@ tchanMw = do
   putHandlerState (MyHandlerData newChan)
   return Nothing
 
-readHandler :: WhebSocket MyApp MyHandlerData IO
+readHandler :: W.Connection -> WhebT MyApp MyHandlerData IO ()
 readHandler c = do
     (MyHandlerData chan) <- getHandlerState
     forever $ liftIO $ do
         msg <- atomically $ readTChan chan
         W.sendTextData c msg
 
-writeHandler :: WhebSocket MyApp MyHandlerData IO
+writeHandler :: W.Connection -> WhebT MyApp MyHandlerData IO ()
 writeHandler c = do
     (MyHandlerData chan) <- getHandlerState
     forever $ liftIO $ do
@@ -179,7 +180,6 @@ main = do
             return $ (MyApp startingChan, MyHandlerData startingChan)
 
   runWhebServer opts
-
 ```
 
 ## Global contexts and Handler State.
