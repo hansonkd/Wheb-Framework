@@ -52,7 +52,7 @@ module Web.Wheb.WhebT
 
 import Blaze.ByteString.Builder (Builder)
 import Control.Concurrent (forkIO, threadDelay)
-import Control.Concurrent.STM (atomically, readTVar, writeTVar)
+import Control.Concurrent.STM (atomically, readTVar, newTVarIO, writeTVar)
 import Control.Monad.Error (liftM, MonadError(throwError), MonadIO, void)
 import Control.Monad.Reader (MonadReader(ask))
 import Control.Monad.State (modify, MonadState(get))
@@ -69,7 +69,7 @@ import Network.HTTP.Types.URI (Query)
 import Network.Wai (defaultRequest, Request(queryString, requestHeaders), responseLBS)
 import Network.Wai.Handler.Warp as W (runSettings, setPort)
 import Network.Wai.Parse (File, Param)
-import System.Posix.Signals (Handler(Catch), installHandler, sigINT, sigTERM)
+import System.Posix.Signals (Handler(Catch), installHandler, sigINT, sigTSTP, sigTERM)
 import Web.Wheb.Internal (optsToApplication, runDebugHandler)
 import Web.Wheb.Routes (generateUrl, getParam)
 import Web.Wheb.Types (CSettings, EResponse, HandlerData(HandlerData, globalCtx, globalSettings, postData, request, routeParams), 
@@ -271,8 +271,11 @@ runWhebServerT :: (forall a . m a -> IO a) ->
 runWhebServerT runIO opts@(WhebOptions {..}) = do
     putStrLn $ "Now running on port " ++ (show $ port)
 
+    forceTVar <- newTVarIO False
+
     installHandler sigINT catchSig Nothing
     installHandler sigTERM catchSig Nothing
+    installHandler sigTSTP (Catch (atomically $ writeTVar forceTVar True >> writeTVar shutdownTVar True)) Nothing
 
     forkIO $ runSettings rtSettings $
         gracefulExit $
@@ -280,7 +283,8 @@ runWhebServerT runIO opts@(WhebOptions {..}) = do
         optsToApplication opts runIO
 
     loop
-    waitForConnections
+    putStrLn $ "Waiting for connections to close..."
+    waitForConnections forceTVar
     putStrLn $ "Shutting down server..."
     sequence_ cleanupActions
 
@@ -293,11 +297,12 @@ runWhebServerT runIO opts@(WhebOptions {..}) = do
           case isExit of
               False -> app r respond
               True  -> respond $ responseLBS serviceUnavailable503 [] LBS.empty
-        waitForConnections = do
+        waitForConnections forceTVar = do
           openConnections <- atomically $ readTVar activeConnections
-          if (openConnections > 0)
-            then waitForConnections
-            else return ()
+          force <- atomically $ readTVar forceTVar
+          if (openConnections == 0 || force)
+            then return ()
+            else waitForConnections forceTVar
         port = fromMaybe 3000 $ 
           (M.lookup (T.pack "port") runTimeSettings) >>= (\(MkVal m) -> cast m)
         rtSettings = W.setPort port warpSettings
