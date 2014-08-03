@@ -134,7 +134,7 @@ import qualified Data.Text.Lazy as T
 
 data MyApp = MyApp T.Text
 data MyState = MyState
-type MyHandler = WhebHandler MyApp MyState
+type MyHandler = WhebHandler MyApp MyState 
 
 handleHome :: MyHandler
 handleHome = text $ "Hello World!"
