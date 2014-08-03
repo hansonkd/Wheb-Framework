@@ -28,17 +28,8 @@ Reimplimentation of official example below. Use with language extensions /Overer
 >  
 >  homePage :: WhebHandler MyApp MyRequestState
 >  homePage = do
->      mongoRes <- runAction $ do
->          delete (select [] "team")
->          insertMany "team" [
->              ["name" =: "Yankees", "home" =: ["city" =: "New York", "state" =: "NY"], "league" =: "American"],
->              ["name" =: "Mets", "home" =: ["city" =: "New York", "state" =: "NY"], "league" =: "National"],
->              ["name" =: "Phillies", "home" =: ["city" =: "Philadelphia", "state" =: "PA"], "league" =: "National"],
->              ["name" =: "Red Sox", "home" =: ["city" =: "Boston", "state" =: "MA"], "league" =: "American"] ]
->          rest =<< find (select [] "team") {sort = ["home.city" =: 1]}
->      case mongoRes of
->          Left err -> text $ spack err
->          Right teams -> text $ T.intercalate " | " $ map spack teams
+>      teams <- runAction $ rest =<< find (select [] "team") {sort = ["home.city" =: 1]}
+>      text $ T.intercalate " | " $ map spack teams
 >  
 >  main :: IO ()
 >  main = do
@@ -46,6 +37,16 @@ Reimplimentation of official example below. Use with language extensions /Overer
 >      addGET "." rootPat $ homePage
 >      mongo <- initMongo "127.0.0.1:27017" "master"
 >      return (MyApp mongo, MyRequestState)
+
+>    runRawHandler opts $ do
+>      runAction $ do
+>          delete (select [] "team")
+>          insertMany "team" [
+>              ["name" =: "Yankees", "home" =: ["city" =: "New York", "state" =: "NY"], "league" =: "American"],
+>              ["name" =: "Mets", "home" =: ["city" =: "New York", "state" =: "NY"], "league" =: "National"],
+>              ["name" =: "Phillies", "home" =: ["city" =: "Philadelphia", "state" =: "PA"], "league" =: "National"],
+>              ["name" =: "Red Sox", "home" =: ["city" =: "Boston", "state" =: "MA"], "league" =: "American"] ]
+>  
 >    runWhebServer opts
 -}
 
