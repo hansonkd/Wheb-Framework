@@ -131,7 +131,7 @@ main = do
   either print (\r -> (showResponseBody r) >>= print) hResult
   
   -- | Or simply debug some stuff.
-  debugHandler opts $ do
+  runRawHandler opts $ do
     liftIO $ putStrLn "Testing..."
     liftIO $ putStrLn "\n\nRoutes..."
     (liftIO . print) =<< getRoute' "blog_int" []
