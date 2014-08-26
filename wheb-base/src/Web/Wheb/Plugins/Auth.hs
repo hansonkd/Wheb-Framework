@@ -36,7 +36,7 @@ module Web.Wheb.Plugins.Auth
 import Control.Monad.Except (liftM, MonadError(throwError), MonadIO(..))
 import Crypto.PasswordStore (makePassword, verifyPassword)
 import Data.Text.Encoding as ES (decodeUtf8, encodeUtf8)
-import Data.Text.Lazy as T (fromStrict, pack, Text, toStrict)
+import Data.Text as T (pack, Text)
 import Web.Wheb (getHandlerState, getWithApp, modifyHandlerState', 
                  WhebError(Error403), WhebHandlerT, WhebMiddleware, WhebT)
 import Web.Wheb.Plugins.Session (deleteSessionValue, getSessionValue', SessionApp, setSessionValue)
@@ -140,9 +140,9 @@ getUserSessionKey :: (AuthApp a, MonadIO m) => WhebT a b m Text
 getUserSessionKey = return $ T.pack "user-id" -- later read from settings.
 
 makePwHash :: MonadIO m => Password -> WhebT a b m PwHash
-makePwHash pw = liftM (T.fromStrict . ES.decodeUtf8) $ 
-                        liftIO $ makePassword (ES.encodeUtf8 $ T.toStrict pw) 14
+makePwHash pw = liftM (ES.decodeUtf8) $ 
+                        liftIO $ makePassword (ES.encodeUtf8 $ pw) 14
 
 verifyPw :: Text -> Text -> Bool
-verifyPw pw hash = verifyPassword (ES.encodeUtf8 $ T.toStrict pw) 
-                          (ES.encodeUtf8 $ T.toStrict hash)
+verifyPw pw hash = verifyPassword (ES.encodeUtf8 $ pw) 
+                          (ES.encodeUtf8 $ hash)

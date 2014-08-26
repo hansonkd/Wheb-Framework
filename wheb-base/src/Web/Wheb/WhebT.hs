@@ -20,6 +20,7 @@ module Web.Wheb.WhebT
   , file
   , builder
   , redirect
+  , throwRedirect
   
   -- * Settings
   , getSetting
@@ -61,6 +62,8 @@ import Data.CaseInsensitive (mk)
 import Data.List (find)
 import qualified Data.Map as M (insert, lookup)
 import Data.Maybe (fromMaybe)
+import qualified Data.Text as TS (pack, empty, Text)
+import qualified Data.Text.Encoding as TS (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Lazy as T (pack, empty, Text)
 import Data.Typeable (cast, Typeable)
 import Network.HTTP.Types.Header (Header)
@@ -72,10 +75,10 @@ import Network.Wai.Parse (File, Param)
 import System.Posix.Signals (Handler(Catch), installHandler, sigINT, sigTSTP, sigTERM)
 import Web.Wheb.Internal (optsToApplication, runDebugHandler)
 import Web.Wheb.Routes (generateUrl, getParam)
-import Web.Wheb.Types (CSettings, EResponse, HandlerData(HandlerData, globalCtx, globalSettings, postData, request, routeParams), 
-                       HandlerResponse(HandlerResponse), InternalState(InternalState, reqState, respHeaders), 
+import Web.Wheb.Types (CSettings, EResponse, HandlerData(..), 
+                       HandlerResponse(HandlerResponse), InternalState(..), 
                        Route(..), RouteParamList, SettingsValue(..), 
-                       UrlBuildError(UrlNameNotFound), WhebError(RouteParamDoesNotExist, URLError), 
+                       UrlBuildError(UrlNameNotFound), WhebError(..), 
                        WhebFile(WhebFile), WhebHandlerT, WhebOptions(..), WhebT(WhebT))
 import Web.Wheb.Utils (lazyTextToSBS, sbsToLazyText)
 
@@ -114,17 +117,17 @@ modifyHandlerState' f = modifyHandlerState f >> (return ())
 -- * Settings
 
 -- | Help prevent monomorphism errors for simple settings.
-getSetting :: Monad m => T.Text -> WhebT g s m (Maybe T.Text)
+getSetting :: Monad m => TS.Text -> WhebT g s m (Maybe T.Text)
 getSetting = getSetting'
 
 -- | Open up underlying support for polymorphic global settings
-getSetting' :: (Monad m, Typeable a) => T.Text -> WhebT g s m (Maybe a)
+getSetting' :: (Monad m, Typeable a) => TS.Text -> WhebT g s m (Maybe a)
 getSetting' k = liftM (\cs -> (M.lookup k cs) >>= unwrap) getSettings
     where unwrap :: Typeable a => SettingsValue -> Maybe a
           unwrap (MkVal a) = cast a
 
 -- | Get a setting or a default
-getSetting'' :: (Monad m, Typeable a) => T.Text -> a -> WhebT g s m a
+getSetting'' :: (Monad m, Typeable a) => TS.Text -> a -> WhebT g s m a
 getSetting'' k d = liftM (fromMaybe d) (getSetting' k)
 
 -- | Get all settings.
@@ -138,17 +141,17 @@ getRouteParams :: Monad m => WhebT g s m RouteParamList
 getRouteParams = WhebT $ liftM routeParams ask
 
 -- | Cast a route param into its type.
-getRouteParam :: (Typeable a, Monad m) => T.Text -> WhebT g s m a
+getRouteParam :: (Typeable a, Monad m) => TS.Text -> WhebT g s m a
 getRouteParam t = do
   p <- getRouteParam' t
   maybe (throwError RouteParamDoesNotExist) return p
 
 -- | Cast a route param into its type.
-getRouteParam' :: (Typeable a, Monad m) => T.Text -> WhebT g s m (Maybe a)
+getRouteParam' :: (Typeable a, Monad m) => TS.Text -> WhebT g s m (Maybe a)
 getRouteParam' t = liftM (getParam t) getRouteParams
 
 -- | Convert 'Either' from 'getRoute'' into an error in the Monad
-getRoute :: Monad m => T.Text -> RouteParamList ->  WhebT g s m T.Text
+getRoute :: Monad m => TS.Text -> RouteParamList ->  WhebT g s m TS.Text
 getRoute name l = do
         res <- getRoute' name l
         case res of
@@ -156,15 +159,15 @@ getRoute name l = do
             Left err -> throwError $ URLError name err
 
 -- | Generate a route from a name and param list.
-getRoute' :: Monad m => T.Text -> 
+getRoute' :: Monad m => TS.Text -> 
              RouteParamList -> 
-             WhebT g s m (Either UrlBuildError T.Text)
+             WhebT g s m (Either UrlBuildError TS.Text)
 getRoute' n l = liftM buildRoute (getRawRoute n l)
     where buildRoute (Just (Route {..})) = generateUrl routeParser l
           buildRoute (Nothing)           = Left UrlNameNotFound
 
 -- | Generate the raw route
-getRawRoute :: Monad m => T.Text -> 
+getRawRoute :: Monad m => TS.Text -> 
              RouteParamList -> 
              WhebT g s m (Maybe (Route g s m))
 getRawRoute n _ = WhebT $ liftM f ask  
@@ -185,12 +188,12 @@ getRawPOST :: MonadIO m => WhebT g s m ([Param], [File LBS.ByteString])
 getRawPOST = WhebT $ liftM postData ask
 
 -- | Get POST params as 'Text'
-getPOSTParams :: MonadIO m => WhebT g s m [(T.Text, T.Text)]
+getPOSTParams :: MonadIO m => WhebT g s m [(TS.Text, TS.Text)]
 getPOSTParams = liftM (fmap f . fst) getRawPOST
-  where f (a, b) = (sbsToLazyText a, sbsToLazyText b)
+  where f (a, b) = (TS.decodeUtf8 a, TS.decodeUtf8 b)
 
 -- | Maybe get one param if it exists.
-getPOSTParam :: MonadIO m => T.Text -> WhebT g s m (Maybe T.Text)
+getPOSTParam :: MonadIO m => TS.Text -> WhebT g s m (Maybe TS.Text)
 getPOSTParam k = liftM (lookup k) getPOSTParams 
 
 -- | Get params from URL (e.g. from '/foo/?q=4')
@@ -198,10 +201,10 @@ getQueryParams :: Monad m => WhebT g s m Query
 getQueryParams = getWithRequest queryString
 
 -- | Get a request header
-getRequestHeader :: Monad m => T.Text -> WhebT g s m (Maybe T.Text)
+getRequestHeader :: Monad m => TS.Text -> WhebT g s m (Maybe TS.Text)
 getRequestHeader k = getRequest >>= f
-  where hk = mk $ lazyTextToSBS k
-        f = (return . (fmap sbsToLazyText) . (lookup hk) . requestHeaders)
+  where hk = mk $ TS.encodeUtf8 k
+        f = (return . (fmap TS.decodeUtf8) . (lookup hk) . requestHeaders)
 
 -- * Responses
 
@@ -212,38 +215,42 @@ setRawHeader (hn, hc) = WhebT $ modify insertHeader
             is { respHeaders = M.insert hn hc respHeaders }
  
 -- | Set a header for the response
-setHeader :: Monad m => T.Text -> T.Text -> WhebT g s m ()
-setHeader hn hc = setRawHeader (mk $ lazyTextToSBS hn, lazyTextToSBS hc)
+setHeader :: Monad m => TS.Text -> TS.Text -> WhebT g s m ()
+setHeader hn hc = setRawHeader (mk $ TS.encodeUtf8 hn, TS.encodeUtf8 hc)
 
--- | Give filepath and content type to serve a file from disk.
-file :: Monad m => T.Text -> T.Text -> WhebHandlerT g s m
+-- | Give filepath and content type to serve a file via lazy text.
+file :: Monad m => TS.Text -> TS.Text -> WhebHandlerT g s m
 file fp ct = do
-    setHeader (T.pack "Content-Type") (ct) 
+    setHeader (TS.pack "Content-Type") (ct) 
     return $ HandlerResponse status200 (WhebFile fp)
 
--- | Return simple HTML from Text
+-- | Return simple HTML from lazy Text
 html :: Monad m => T.Text -> WhebHandlerT g s m
 html c = do
-    setHeader (T.pack "Content-Type") (T.pack "text/html") 
+    setHeader (TS.pack "Content-Type") (TS.pack "text/html") 
     return $ HandlerResponse status200 c
 
--- | Return simple Text 
+-- | Return simple lazy Text 
 text :: Monad m => T.Text -> WhebHandlerT g s m
 text c = do
-    setHeader (T.pack "Content-Type") (T.pack "text/plain") 
+    setHeader (TS.pack "Content-Type") (TS.pack "text/plain") 
     return $ HandlerResponse status200 c
 
 -- | Give content type and Blaze Builder
-builder :: Monad m => T.Text -> Builder -> WhebHandlerT g s m
+builder :: Monad m => TS.Text -> Builder -> WhebHandlerT g s m
 builder c b = do
-    setHeader (T.pack "Content-Type") c 
+    setHeader (TS.pack "Content-Type") c 
     return $ HandlerResponse status200 b
 
 -- | Redirect to a given URL
-redirect :: Monad m => T.Text -> WhebHandlerT g s m
+redirect :: Monad m => TS.Text -> WhebHandlerT g s m
 redirect c = do
-    setHeader (T.pack "Location") c
+    setHeader (TS.pack "Location") c
     return $ HandlerResponse status302 T.empty
+    
+-- | Thow a redirect as an error
+throwRedirect :: Monad m => TS.Text -> WhebHandlerT g s m
+throwRedirect c = throwError $ ErrorStatus status302 T.empty
     
 -- * Running a Wheb Application
 
@@ -304,7 +311,7 @@ runWhebServerT runIO opts@(WhebOptions {..}) = do
             then return ()
             else waitForConnections forceTVar
         port = fromMaybe 3000 $ 
-          (M.lookup (T.pack "port") runTimeSettings) >>= (\(MkVal m) -> cast m)
+          (M.lookup (TS.pack "port") runTimeSettings) >>= (\(MkVal m) -> cast m)
         rtSettings = W.setPort port warpSettings
 
 -- | Convenience wrapper for 'runWhebServerT' function in IO

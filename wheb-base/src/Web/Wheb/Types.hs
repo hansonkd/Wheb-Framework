@@ -17,6 +17,7 @@ import Data.List (intercalate)
 import Data.Map as M (Map)
 import Data.String (IsString(..))
 import qualified Data.Text.Lazy as T (pack, Text, unpack)
+import qualified Data.Text as TS (pack, Text, unpack)
 import Data.Typeable (Typeable)
 import Network.HTTP.Types.Header (HeaderName, ResponseHeaders)
 import Network.HTTP.Types.Method (StdMethod)
@@ -56,7 +57,7 @@ class WhebContent a where
   toResponse :: Status -> ResponseHeaders -> a -> Response
 
 -- | A Wheb response that represents a file.
-data WhebFile = WhebFile T.Text
+data WhebFile = WhebFile TS.Text
 
 data HandlerResponse = forall a . WhebContent a => HandlerResponse Status a
 
@@ -75,11 +76,12 @@ data InternalState s =
                 
 data SettingsValue = forall a. (Typeable a) => MkVal a
 
-data WhebError = Error500 String 
+data WhebError = Error500 T.Text
                | Error404
                | Error403
+               | ErrorStatus Status T.Text
                | RouteParamDoesNotExist
-               | URLError T.Text UrlBuildError
+               | URLError TS.Text UrlBuildError
   deriving (Show)
 
 -- | Monoid to use in InitM's WriterT
@@ -121,7 +123,7 @@ data WhebOptions g s m = MonadIO m =>
 
 type EResponse = Either WhebError Response
 
-type CSettings = M.Map T.Text SettingsValue
+type CSettings = M.Map TS.Text SettingsValue
     
 type WhebHandler g s      = WhebT g s IO HandlerResponse
 type WhebHandlerT g s m   = WhebT g s m HandlerResponse
@@ -135,9 +137,9 @@ type MinHandler = MinWheb HandlerResponse
 type MinOpts = WhebOptions () () IO
 
 -- * Routes
-data PackedSite g s m = forall a . PackedSite T.Text (Site a (WhebHandlerT g s m))
+data PackedSite g s m = forall a . PackedSite TS.Text (Site a (WhebHandlerT g s m))
 
-type  RouteParamList = [(T.Text, ParsedChunk)]
+type  RouteParamList = [(TS.Text, ParsedChunk)]
 type  MethodMatch = StdMethod -> Bool
 
 data ParsedChunk = forall a. (Typeable a, Show a) => MkChunk a
@@ -145,16 +147,16 @@ data ParsedChunk = forall a. (Typeable a, Show a) => MkChunk a
 instance Show ParsedChunk where
   show (MkChunk a) = show a
 
-data UrlBuildError = NoParam | ParamTypeMismatch T.Text | UrlNameNotFound
+data UrlBuildError = NoParam | ParamTypeMismatch TS.Text | UrlNameNotFound
      deriving (Show) 
 
 -- | A Parser should be able to extract params and regenerate URL from params.
 data UrlParser = UrlParser 
-    { parseFunc :: ([T.Text] -> Maybe RouteParamList)
-    , genFunc   :: (RouteParamList -> Either UrlBuildError T.Text) }
+    { parseFunc :: ([TS.Text] -> Maybe RouteParamList)
+    , genFunc   :: (RouteParamList -> Either UrlBuildError TS.Text) }
 
 data Route g s m = Route 
-  { routeName    :: (Maybe T.Text)
+  { routeName    :: (Maybe TS.Text)
   , routeMethod  :: MethodMatch
   , routeParser  :: UrlParser
   , routeHandler :: (WhebHandlerT g s m) }
@@ -167,17 +169,17 @@ data SocketRoute g s m = SocketRoute
 data ChunkType = IntChunk | TextChunk
   deriving (Show)
 
-data UrlPat = Chunk T.Text
+data UrlPat = Chunk TS.Text
             | Composed [UrlPat]
             | FuncChunk 
-                { chunkParamName :: T.Text
-                , chunkFunc :: (T.Text -> Maybe ParsedChunk)
+                { chunkParamName :: TS.Text
+                , chunkFunc :: (TS.Text -> Maybe ParsedChunk)
                 , chunkType :: ChunkType }
 
 instance Show UrlPat where
-  show (Chunk a) = "(Chunk " ++ (T.unpack a) ++ ")"
+  show (Chunk a) = "(Chunk " ++ (TS.unpack a) ++ ")"
   show (Composed a) = intercalate "/" $ fmap show a
-  show (FuncChunk pn _ ct) = "(FuncChunk " ++ (T.unpack pn) ++ " | " ++ (show ct) ++ ")"
+  show (FuncChunk pn _ ct) = "(FuncChunk " ++ (TS.unpack pn) ++ " | " ++ (show ct) ++ ")"
 
 instance IsString UrlPat where
-  fromString = Chunk . T.pack
+  fromString = Chunk . TS.pack

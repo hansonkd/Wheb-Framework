@@ -24,8 +24,9 @@ module Web.Wheb.Routes
   ) where
   
 import Data.Monoid ((<>))
-import qualified Data.Text.Lazy as T (fromStrict, null, pack, Text, toStrict)
-import Data.Text.Lazy.Read (decimal, Reader)
+import qualified Data.Text as TS (null, pack, Text)
+import qualified Data.Text.Encoding as TS (encodeUtf8)
+import Data.Text.Read (decimal, Reader)
 import Data.Typeable (cast, Typeable)
 import Network.HTTP.Types.Method (StdMethod)
 import Network.HTTP.Types.URI (decodePathSegments, encodePathSegments)
@@ -34,10 +35,10 @@ import Web.Wheb.Types (ChunkType(..), ParsedChunk(..), Route(Route), RouteParamL
                        UrlBuildError(NoParam, ParamTypeMismatch), UrlParser(UrlParser),
                        UrlPat(Chunk, Composed, FuncChunk), WhebHandlerT, SocketRoute(SocketRoute), 
                        PackedSite(..), WhebSocket)
-import Web.Wheb.Utils (builderToText, lazyTextToSBS, spack)
+import Web.Wheb.Utils (builderToText, lazyTextToSBS, spack, spacks, builderToStrictText)
 
 -- | Build a 'Route' from a 'UrlPat'
-patRoute :: (Maybe T.Text) -> 
+patRoute :: (Maybe TS.Text) -> 
             StdMethod -> 
             UrlPat -> 
             WhebHandlerT g s m -> 
@@ -51,7 +52,7 @@ compilePat a = UrlParser (matchPat [a]) (buildPat [a])
 
 -- | Represents root path @/@
 rootPat :: UrlPat
-rootPat = Chunk $ T.pack ""
+rootPat = Chunk $ TS.pack ""
 
 -- | Allows for easier building of URL patterns
 --   This should be the primary URL constructor.
@@ -65,39 +66,39 @@ a </> (Composed b) = Composed (a:b)
 a </> b = Composed [a, b]
 
 -- | Parses URL parameter and matches on 'Int'
-grabInt :: T.Text -> UrlPat
+grabInt :: TS.Text -> UrlPat
 grabInt key = FuncChunk key f IntChunk
   where rInt = decimal :: Reader Int
         f = ((either (const Nothing) (Just . MkChunk . fst)) . rInt)
 
 -- | Parses URL parameter and matches on 'Text'
-grabText :: T.Text -> UrlPat
+grabText :: TS.Text -> UrlPat
 grabText key = FuncChunk key (Just . MkChunk) TextChunk
 
 -- | Constructors to use w/o OverloadedStrings
-pT :: T.Text -> UrlPat
+pT :: TS.Text -> UrlPat
 pT = Chunk
 
 pS :: String -> UrlPat
-pS = pT . T.pack
+pS = pT . TS.pack
 
 -- | Lookup and cast a URL parameter to its expected type if it exists.
-getParam :: Typeable a => T.Text -> RouteParamList -> Maybe a
+getParam :: Typeable a => TS.Text -> RouteParamList -> Maybe a
 getParam k l = (lookup k l) >>= unwrap
   where unwrap :: Typeable a => ParsedChunk -> Maybe a
         unwrap (MkChunk a) = cast a
 
 -- | Convert URL chunks (split on /)                                
-matchUrl :: [T.Text] -> UrlParser -> Maybe RouteParamList
+matchUrl :: [TS.Text] -> UrlParser -> Maybe RouteParamList
 matchUrl url (UrlParser f _) = f url
 
 -- | Runs a 'UrlParser' with 'RouteParamList' to a URL path
-generateUrl :: UrlParser -> RouteParamList -> Either UrlBuildError T.Text
+generateUrl :: UrlParser -> RouteParamList -> Either UrlBuildError TS.Text
 generateUrl (UrlParser _ f) = f
 
 -- | Sort through a list of routes to find a Handler and 'RouteParamList'
 findUrlMatch :: StdMethod ->
-                [T.Text] ->
+                [TS.Text] ->
                 [Route g s m] ->
                 Maybe (WhebHandlerT g s m, RouteParamList)
 findUrlMatch _ _ [] = Nothing
@@ -108,7 +109,7 @@ findUrlMatch rmtd path ((Route _ methodMatch (UrlParser f _) h):rs)
                         Nothing -> findUrlMatch rmtd path rs
 
 -- | Sort through socket routes to find a match
-findSocketMatch :: [T.Text] -> [SocketRoute g s m] -> Maybe (WhebSocket g s m, RouteParamList)
+findSocketMatch :: [TS.Text] -> [SocketRoute g s m] -> Maybe (WhebSocket g s m, RouteParamList)
 findSocketMatch _ [] = Nothing
 findSocketMatch path ((SocketRoute (UrlParser f _) h):rs) = 
     case f path of
@@ -116,22 +117,22 @@ findSocketMatch path ((SocketRoute (UrlParser f _) h):rs) =
         Nothing -> findSocketMatch path rs
 
 findSiteMatch :: [PackedSite g s m] -> 
-                 [T.Text] -> 
+                 [TS.Text] -> 
                  Maybe (WhebHandlerT g s m)
 findSiteMatch [] _ = Nothing
 findSiteMatch ((PackedSite t site):sites) cs = 
   either (const (findSiteMatch sites cs)) Just $
-        runSite (T.toStrict t) site (map T.toStrict cs)
+        runSite t site cs
 
 -- | Test a parser to make sure it can match what it produces and vice versa
 testUrlParser :: UrlParser -> RouteParamList -> Bool
 testUrlParser up rpl = 
   case generateUrl up rpl of
       Left _ -> False
-      Right t -> case (matchUrl (fmap T.fromStrict $ decodeUrl t) up) of
+      Right t -> case (matchUrl (decodeUrl t) up) of
           Just params -> either (const False) (==t) (generateUrl up params)
           Nothing -> False
-  where decodeUrl = decodePathSegments . lazyTextToSBS
+  where decodeUrl = decodePathSegments . TS.encodeUtf8
 
 -- | Implementation for a 'UrlParser' using pseudo-typed URL composition.
 --   Pattern will match path when the pattern is as long as the path, matching
@@ -142,15 +143,15 @@ testUrlParser up rpl =
 --       This will match on "/blog/1/edit" and /blog/9999/edit/"
 --       But not "/blog/1/", "/blog/1", "blog/foo/edit/", "/blog/9/edit/d",
 --       nor "/blog/9/edit//"
-matchPat :: [UrlPat] ->  [T.Text] -> Maybe RouteParamList
-matchPat chunks [] = matchPat chunks [T.pack ""]
+matchPat :: [UrlPat] ->  [TS.Text] -> Maybe RouteParamList
+matchPat chunks [] = matchPat chunks [TS.pack ""]
 matchPat chunks t  = parse t chunks []
   where parse [] [] params = Just params
         parse [] c  params = Nothing
-        parse (u:[]) [] params | T.null u  = Just params
+        parse (u:[]) [] params | TS.null u  = Just params
                                | otherwise = Nothing
         parse (u:us) [] _ = Nothing
-        parse (u:us) ((Chunk c):cs) params | T.null c  = parse (u:us) cs params
+        parse (u:us) ((Chunk c):cs) params | TS.null c  = parse (u:us) cs params
                                            | u == c    = parse us cs params
                                            | otherwise = Nothing
         parse (u:us) ((FuncChunk k f _):cs) params = do
@@ -158,28 +159,28 @@ matchPat chunks t  = parse t chunks []
                                             parse us cs ((k, val):params)
         parse us ((Composed xs):cs) params = parse us (xs ++ cs) params
 
-buildPat :: [UrlPat] -> RouteParamList -> Either UrlBuildError T.Text
+buildPat :: [UrlPat] -> RouteParamList -> Either UrlBuildError TS.Text
 buildPat pats params = fmap addSlashes $ build [] pats
     where build acc [] = Right acc
           build acc ((Chunk c):[]) = build (acc <> [c]) []
-          build acc ((Chunk c):cs) | T.null c = build acc cs
+          build acc ((Chunk c):cs) | TS.null c = build acc cs
                                    | otherwise = build (acc <> [c]) cs
           build acc ((Composed xs):cs)     = build acc (xs <> cs)
           build acc ((FuncChunk k _ t):cs) = 
               case (showParam t k params) of
                       (Right  v)  -> build (acc <> [v]) cs
                       (Left err)  -> Left err
-          addSlashes []   = T.pack "/"
-          addSlashes list = builderToText $
-                              encodePathSegments (fmap T.toStrict list)
+          addSlashes []   = TS.pack "/"
+          addSlashes list = builderToStrictText $
+                              encodePathSegments list
 
-showParam :: ChunkType -> T.Text -> RouteParamList -> Either UrlBuildError T.Text
+showParam :: ChunkType -> TS.Text -> RouteParamList -> Either UrlBuildError TS.Text
 showParam chunkType k l = 
     case (lookup k l) of
         Just (MkChunk v) -> case chunkType of
-            IntChunk -> toEither $ fmap spack (cast v :: Maybe Int)
-            TextChunk -> toEither (cast v :: Maybe T.Text)
+            IntChunk -> toEither $ fmap spacks (cast v :: Maybe Int)
+            TextChunk -> toEither (cast v :: Maybe TS.Text)
         Nothing -> Left NoParam
     where toEither v = case v of
                           Just b  -> Right b
-                          Nothing -> Left $ ParamTypeMismatch k
+                          Nothing -> Left $ ParamTypeMismatch $ k

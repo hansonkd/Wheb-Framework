@@ -1,0 +1,92 @@
+
+name:                wheb-redis
+version:             0.0.1.0
+synopsis:            Redis connection for Wheb
+
+-- A longer description of the package.
+-- description:         
+
+-- URL for the project homepage or repository.
+homepage:            https://github.com/hansonkd/Wheb-Framework
+
+-- The license under which the package is released.
+license:             BSD3
+
+-- The file containing the license text.
+license-file:        LICENSE
+
+-- The package author(s).
+author:              Kyle
+
+-- An email address to which users can send suggestions, bug reports, and 
+-- patches.
+maintainer:          me@khanson.io
+
+-- A copyright notice.
+-- copyright:           
+
+category:            Web
+
+build-type:          Simple
+
+-- Extra files to be distributed with the package, such as examples or a 
+-- README.
+-- extra-source-files:  
+
+-- Constraint on the version of Cabal needed to build this package.
+cabal-version:       >=1.10
+
+description:
+  Implements basic functionality for:
+  .
+  * <http://hackage.haskell.org/package/hedis Hedis>
+  .
+  * <http://hackage.haskell.org/package/Wheb Wheb>
+  .
+  /In action:/
+  .
+  Use with language extensions /OverloadedStrings/
+  .
+  >  import Web.Wheb
+  >  import Web.Wheb.Plugins.Redis
+  >  
+  >  data MyCtx = MyCtx RedisContainer
+  >  
+  >  instance RedisApp MyCtx where
+  >    getRedisContainer (MyCtx rc) = rc
+  >  
+  >  main :: IO ()
+  >  main = do
+  >    opts <- generateOptions $ do
+  >        r <- initRedis defaultConnectInfo
+  >        addGET "home" rootPat ((runRedis $ get "hello") >>= (text . spack))
+  >        return (MyCtx r, ())
+  >   
+  >    runRawHandler opts $ do
+  >        runRedis $ set "hello" "world"
+  >   
+  >    runWhebServer opts
+
+library
+  -- Modules exported by the library.
+  exposed-modules:     Web.Wheb.Plugins.Redis
+  
+  -- Modules included in this library but not exported.
+  -- other-modules:       
+  
+  -- LANGUAGE extensions used by modules in this package.
+  other-extensions:    OverloadedStrings
+  
+  -- Other library packages from which modules are imported.
+  build-depends:       base >=4.7 && <4.8, 
+                       mtl >=2.2 && <2.3, 
+                       Wheb >=0.2 && <0.3, 
+                       text >=1.1 && <1.2, 
+                       hedis >=0.6 && <0.7
+  
+  -- Directories containing source files.
+  hs-source-dirs: src   
+  
+  -- Base language which the package is written in.
+  default-language:    Haskell2010
+  

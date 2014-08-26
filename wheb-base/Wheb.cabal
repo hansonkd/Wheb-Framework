@@ -1,5 +1,5 @@
 name:                Wheb
-version:             0.2.0.0
+version:             0.2.1.0
 synopsis:            The frictionless WAI Framework
 license:             BSD3
 license-file:        LICENSE
@@ -69,6 +69,8 @@ description:
   to the correct count before it reaches our handler. We use a TVar in the Global context 
   because any state changes to the handler state will not affect other requests.
   .
+  Use with language extensions /OverloadedStrings/
+  .
   >  import           Control.Concurrent.STM
   >  import           Control.Monad.IO.Class
   >  import           Data.Monoid
@@ -100,7 +102,7 @@ description:
   >    opts <- generateOptions $ do
   >              startingCounter <- liftIO $ newTVarIO 0
   >              addWhebMiddleware counterMw
-  >              addGET (pack ".") rootPat $ homePage
+  >              addGET "." rootPat $ homePage
   >              return $ (MyApp "AwesomeApp" startingCounter, MyHandlerData 0)
   >    runWhebServer opts
 

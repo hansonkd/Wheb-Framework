@@ -41,7 +41,7 @@ optsToApplication opts@(WhebOptions {..}) runIO r respond = do
                             runDebugHandler (opts {startingState = st}) (h c) (baseData { routeParams = params })
                   Nothing -> W.rejectRequest pc (B.pack "No socket for path.")
 
-        handleMain r respond = do
+        handleMain r respond' = do
             pData <- parseRequestBody lbsBackEnd r
             res <- runIO $ do
                     let mwData = baseData { postData = pData }
@@ -59,9 +59,9 @@ optsToApplication opts@(WhebOptions {..}) runIO r respond = do
                                             runWhebHandler opts h st hData 
                                         Nothing          -> return $ Left Error404
             finished <- either handleError return res
-            respond finished
+            respond' finished
         baseData   = HandlerData startingCtx r ([], []) [] opts
-        pathChunks = fmap T.fromStrict $ pathInfo r
+        pathChunks = pathInfo r
         stdMthd    = either (\_-> GET) id $ parseMethod $ requestMethod r
         runErrorHandler eh = runWhebHandler opts eh startingState baseData
         handleError err = do

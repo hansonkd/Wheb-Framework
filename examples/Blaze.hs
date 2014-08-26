@@ -2,7 +2,7 @@
 
 import           Control.Monad (forM_)
 import           Control.Monad.IO.Class (liftIO)
-import           Data.Text.Lazy (unpack)
+import           Data.Text (unpack)
 import           Text.Read (readMaybe)
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A

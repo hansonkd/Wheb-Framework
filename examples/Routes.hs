@@ -4,7 +4,6 @@ import           Control.Monad (forM_, forM)
 
 import           Data.Maybe (fromJust, isJust)
 import           Data.Text.Lazy (Text)
-import           Data.Text.Lazy as T
 import           Network.HTTP.Types.URI
 
 import           Web.Wheb

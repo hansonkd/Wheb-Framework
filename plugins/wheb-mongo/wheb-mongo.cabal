@@ -1,5 +1,5 @@
 name:                wheb-mongo
-version:             0.0.2.0
+version:             0.0.3.0
 synopsis:            MongoDB plugin for Wheb
 homepage:            https://github.com/hansonkd/Wheb-Framework
 license:             BSD3

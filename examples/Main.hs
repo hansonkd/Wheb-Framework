@@ -5,6 +5,7 @@ module Main where
 import           Control.Monad
 import           Control.Monad.IO.Class
 
+import qualified Data.Text as TS
 import qualified Data.Text.Lazy as T
 import           Data.Maybe (fromJust, fromMaybe)
 import           Data.Monoid
@@ -42,11 +43,11 @@ homePage = do
   setSessionValue "has-visted" "True"
   case v of
     Just _  -> do
-        url  <- getRoute "blog_txt" [("slug", MkChunk ("hey" :: T.Text))]
-        html $ "<h1>Welcome back!</h1><a href=\"" <> url <> "\">Go to blog</a>"
+        url  <- getRoute "blog_txt" [("slug", MkChunk ("hey" :: TS.Text))]
+        html $ "<h1>Welcome back!</h1><a href=\"" <> (T.fromStrict url) <> "\">Go to blog</a>"
     Nothing -> do
         url  <- getRoute "faq" []
-        html $ "<h1>Hello Stranger!</h1><a href=\"" <> url <> "\">FAQ</a>"
+        html $ "<h1>Hello Stranger!</h1><a href=\"" <> (T.fromStrict url) <> "\">FAQ</a>"
 
 handleSimple :: T.Text -> WhebHandler GlobalApp RequestState
 handleSimple t = html $ "<h1>" <> t <> "</h1>"
@@ -60,7 +61,7 @@ handlePOST = do
     let curValsText = zipWith zipFunc keys currentVals
     forM_ params (\(k, v) -> setSessionValue k v)
     html $ "<h1>Session Values before SET...</h1>" <>  (mconcat $ curValsText)
-    where zipFunc k v = "| Key: " <> k <> " Value: " <> (T.pack $ show v)
+    where zipFunc k v = "| Key: " <> (T.fromStrict k) <> " Value: " <> (T.pack $ show v)
 
 handleCurrentUser :: WhebHandler GlobalApp RequestState
 handleCurrentUser = do
@@ -136,8 +137,8 @@ main = do
     liftIO $ putStrLn "\n\nRoutes..."
     (liftIO . print) =<< getRoute' "blog_int" []
     (liftIO . print) =<< getRoute' "blog_int" [("pk", MkChunk (3 :: Int))]
-    (liftIO . print) =<< getRoute' "blog_int" [("pk", MkChunk ("hey" :: T.Text))]
-    (liftIO . print) =<< getRoute' "blog_txt" [("slug", MkChunk ("hey" :: T.Text))]
+    (liftIO . print) =<< getRoute' "blog_int" [("pk", MkChunk ("hey" :: TS.Text))]
+    (liftIO . print) =<< getRoute' "blog_txt" [("slug", MkChunk ("hey" :: TS.Text))]
     
     liftIO $ putStrLn "\n\nUsers auth..."
     (liftIO . print) =<< getCurrentUser

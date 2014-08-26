@@ -13,7 +13,7 @@ module Web.Wheb.Plugins.Strapped
 
 
 import           Control.Monad.Except
-
+import qualified Data.Text.Lazy as T
 import           Web.Wheb
 
 import           Text.Strapped
@@ -40,5 +40,5 @@ renderTemplate tName bucket = do
     sc <- getWithApp getStrappedContainer 
     result <- render (renderconfig sc) (combineBuckets bucket (defaultBucket sc)) tName
     case result of
-        Left err -> throwError $ Error500 (show err)
+        Left err -> throwError $ Error500 (T.pack $ show err)
         Right b -> builder "text/html" b

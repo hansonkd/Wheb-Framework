@@ -1,5 +1,5 @@
 import           Web.Wheb
-import           Data.Text.Lazy (Text, pack)
+import           Data.Text (Text, pack)
 
 main :: IO ()
 main = do

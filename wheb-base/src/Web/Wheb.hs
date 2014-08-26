@@ -34,6 +34,8 @@ module Web.Wheb
   , file
   , builder
   , redirect
+  , throwRedirect
+  
   -- *** Setting a header
   , setHeader
   , setRawHeader
@@ -117,4 +119,4 @@ import Web.Wheb.InitM (addCleanupHook, addDELETE, addGET, addPOST, addPUT, addRo
 import Web.Wheb.Routes ((</>), compilePat, grabInt, grabText, pS, pT, rootPat)
 import Web.Wheb.Types (ChunkType(..), CSettings, WhebSocket, EResponse, HandlerData(..), HandlerResponse(..), InitM(..), InitOptions(..), InternalState(..), MethodMatch, MinHandler, MinOpts, MinWheb, PackedSite(..), ParsedChunk(..), Route(..), RouteParamList, SettingsValue(..), UrlBuildError(..), UrlParser(..), UrlPat(..), WhebContent(..), WhebError(..), WhebFile(..), WhebHandler, WhebHandlerT, WhebMiddleware, WhebOptions(..), WhebT(..))
 import Web.Wheb.Utils (spack)
-import Web.Wheb.WhebT (builder, runRawHandler, runRawHandlerT, file, redirect, getApp, getHandlerState, getPOSTParam, getPOSTParams, getQueryParams, getRawPOST, getRequest, getRequestHeader, getRoute, getRoute', getRouteParam, getRouteParams, getSetting, getSetting', getSetting'', getSettings, getWithApp, getWithRequest, html, modifyHandlerState, modifyHandlerState', putHandlerState, runWhebServer, runWhebServerT, setHeader, setRawHeader, text)
+import Web.Wheb.WhebT (builder, runRawHandler, runRawHandlerT, file, redirect, throwRedirect, getApp, getHandlerState, getPOSTParam, getPOSTParams, getQueryParams, getRawPOST, getRequest, getRequestHeader, getRoute, getRoute', getRouteParam, getRouteParams, getSetting, getSetting', getSetting'', getSettings, getWithApp, getWithRequest, html, modifyHandlerState, modifyHandlerState', putHandlerState, runWhebServer, runWhebServerT, setHeader, setRawHeader, text)

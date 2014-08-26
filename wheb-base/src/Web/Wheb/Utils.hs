@@ -2,23 +2,28 @@
 
 module Web.Wheb.Utils where
 
-import Blaze.ByteString.Builder (Builder, fromLazyByteString, toLazyByteString)
+import Blaze.ByteString.Builder (Builder, fromLazyByteString, toLazyByteString, toByteString)
 import Data.IORef (atomicModifyIORef, newIORef, readIORef)
 import Data.Monoid ((<>), Monoid(mappend, mempty))
 import qualified Data.Text.Encoding as TS (decodeUtf8, encodeUtf8)
+import qualified Data.Text as TS (pack, unpack, Text)
 import qualified Data.Text.Lazy as T (fromStrict, pack, Text, toStrict)
 import qualified Data.Text.Lazy.Encoding as T (decodeUtf8, encodeUtf8)
 import Network.HTTP.Types.Status (status500)
 import Network.Wai (Response, responseBuilder, responseFile, responseLBS, responseToStream)
-import Web.Wheb.Types (HandlerResponse(..), WhebContent(..), WhebError, WhebFile(..), WhebHandlerT)
+import Web.Wheb.Types (HandlerResponse(..), WhebContent(..), WhebError(..), WhebFile(..), WhebHandlerT)
 
 lazyTextToSBS = TS.encodeUtf8 . T.toStrict
 sbsToLazyText = T.fromStrict . TS.decodeUtf8
 builderToText = T.decodeUtf8 . toLazyByteString
-
--- | Show and pack into 'Text'
+builderToStrictText = TS.decodeUtf8 . toByteString
+-- | Show and pack into Lazy 'Text'
 spack :: Show a => a -> T.Text
 spack = T.pack . show
+
+-- | Show and pack into Strict 'Text'
+spacks :: Show a => a -> TS.Text
+spacks = TS.pack . show
 
 -- | See a 'HandlerResponse's as 'Text'
 showResponseBody :: HandlerResponse -> IO T.Text
@@ -42,10 +47,11 @@ instance WhebContent T.Text where
   toResponse s hds = responseBuilder s hds . fromLazyByteString . T.encodeUtf8
 
 instance WhebContent WhebFile where
-  toResponse s hds (WhebFile fp) = responseFile s hds (show fp) Nothing
+  toResponse s hds (WhebFile fp) = responseFile s hds (TS.unpack fp) Nothing
 
 ----------------------- Some defaults -----------------------
 defaultErr :: Monad m => WhebError -> WhebHandlerT g s m
+defaultErr (ErrorStatus s t) = return $ HandlerResponse s t
 defaultErr err = return $ HandlerResponse status500 $ 
             ("<h1>Error: " <> (T.pack $ show err) <> ".</h1>")
 

@@ -5,7 +5,7 @@ import Control.Monad (liftM)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.Map as M (alter, delete, empty, insert, lookup, Map, member, update)
 import Data.Maybe (fromMaybe)
-import Data.Text.Lazy (Text)
+import Data.Text (Text)
 import Web.Wheb (InitM)
 import Web.Wheb.Plugins.Auth (AuthBackend(..), AuthContainer(..), AuthError(..), AuthUser(AuthUser), 
                               getUserSessionKey, makePwHash, PwHash, UserKey, verifyPw)

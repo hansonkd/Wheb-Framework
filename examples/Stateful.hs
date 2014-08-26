@@ -3,7 +3,7 @@
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
 import           Data.Monoid
-import           Data.Text.Lazy (Text, pack)
+import           Data.Text.Lazy (Text)
 import           Web.Wheb
 
 data MyApp = MyApp Text (TVar Int)
