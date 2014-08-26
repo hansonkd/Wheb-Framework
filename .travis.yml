@@ -4,7 +4,7 @@ install:
   - cabal install wheb-base/Wheb.cabal --enable-tests
   - cabal install plugins/wheb-mongo/wheb-mongo.cabal --enable-tests
   - cabal install plugins/wheb-strapped/wheb-strapped.cabal --enable-tests
-  - cabal install plugins/wheb-strapped/wheb-redis.cabal --enable-tests
+  - cabal install plugins/wheb-redis/wheb-redis.cabal --enable-tests
   - cabal install blaze-html
   - cabal install web-routes-boomerang
 script:

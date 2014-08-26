@@ -91,7 +91,7 @@ library
   other-extensions:    OverloadedStrings, FlexibleContexts, MultiParamTypeClasses
   
   -- Other library packages from which modules are imported.
-  build-depends:       base >=4.7 && <4.8, mtl >=2.2 && <2.3, Wheb >=0.2 && <0.3, StrappedTemplates >=0.1 && <0.2, text >=1.1 && <1.2
+  build-depends:       base >=4.7 && <4.8, mtl >=2.2 && <2.3, Wheb >=0.3 && <0.4, StrappedTemplates >=0.1 && <0.2, text >=1.1 && <1.2
   
   -- Directories containing source files.
   -- hs-source-dirs:      
