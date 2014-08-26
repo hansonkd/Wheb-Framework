@@ -282,23 +282,25 @@ runWhebServerT runIO opts@(WhebOptions {..}) = do
 
     installHandler sigINT catchSig Nothing
     installHandler sigTERM catchSig Nothing
-    installHandler sigTSTP (Catch (atomically $ writeTVar forceTVar True >> writeTVar shutdownTVar True)) Nothing
 
     forkIO $ runSettings rtSettings $
         gracefulExit $
         waiStack $
         optsToApplication opts runIO
 
-    loop
+    let termSig = (Catch (atomically $ writeTVar forceTVar True >> writeTVar shutdownTVar True))
+        installForceKill = installHandler sigTERM termSig Nothing >> installHandler sigINT termSig Nothing
+
+    loop installForceKill
     putStrLn $ "Waiting for connections to close..."
     waitForConnections forceTVar
     putStrLn $ "Shutting down server..."
     sequence_ cleanupActions
 
   where catchSig = (Catch (atomically $ writeTVar shutdownTVar True))
-        loop = do
+        loop terminate = do
           shutDown <- atomically $ readTVar shutdownTVar
-          if shutDown then return () else (threadDelay 100000) >> loop
+          if shutDown then terminate else (threadDelay 100000) >> loop terminate
         gracefulExit app r respond = do
           isExit <- atomically $ readTVar shutdownTVar
           case isExit of
