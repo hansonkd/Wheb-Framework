@@ -16,7 +16,7 @@ description:
   .
   * Minimal boilerplate to start your application.
   .
-  * Session, Auth and Cache interfaces built in. Just drop in a backend.
+  * Session, Auth and Cache interfaces are built in. Just drop in a backend.
   .
   * Typesafe web-routes or named routes and URL generation.
   .
@@ -43,7 +43,11 @@ description:
   .
   * Auth
   .
+  * Cache
+  .
   * <http://hackage.haskell.org/package/wheb-mongo Wheb-Mongo>
+  .
+  * <http://hackage.haskell.org/package/wheb-redis Wheb-Redis>
   .
   * <http://hackage.haskell.org/package/wheb-strapped Wheb-Strapped>
   .

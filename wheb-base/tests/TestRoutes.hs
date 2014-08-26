@@ -1,7 +1,7 @@
 module TestRoutes where
 
-import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy as T
+import Data.Text (Text)
+import qualified Data.Text as T
 import Test.QuickCheck
 import Test.QuickCheck.Gen (choose)
 import Web.Wheb
