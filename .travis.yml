@@ -1,6 +1,7 @@
 language: haskell
 ghc: 7.8
 install:
+  - cabal install alex
   - cabal install wheb-base/Wheb.cabal --enable-tests
   - cabal install plugins/wheb-mongo/wheb-mongo.cabal --enable-tests
   - cabal install plugins/wheb-strapped/wheb-strapped.cabal --enable-tests
