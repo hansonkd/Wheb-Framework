@@ -2,7 +2,9 @@
 
 module Web.Wheb.Internal where
 
+import qualified Data.CaseInsensitive as CI
 import qualified Data.ByteString.Char8 as B
+import Data.Maybe (fromMaybe)
 import Control.Monad (void)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader (ReaderT(runReaderT))
@@ -10,16 +12,14 @@ import Control.Monad.State (evalStateT, StateT(runStateT))
 import qualified Data.Map as M (toList)
 import qualified Data.Text.Lazy as T (fromStrict, Text, toStrict, pack)
 import Network.HTTP.Types.Method (parseMethod, StdMethod(GET))
-import Network.Wai (Application, Request(pathInfo, requestMethod), Response)
+import Network.Wai (Application, Request(..), Response)
 import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
 import Network.Wai.Handler.WebSockets (websocketsOr)
 import qualified Network.WebSockets as W
 import Web.Wheb.Routes (findUrlMatch, findSiteMatch, findSocketMatch)
-import Web.Wheb.Types (EResponse, HandlerData(HandlerData, postData, routeParams),
-                       HandlerResponse(HandlerResponse), InternalState(..), 
-                       WhebContent(toResponse), WhebError(Error404), WhebHandlerT, 
-                       WhebMiddleware, WhebOptions(..), WhebT(runWhebT))
+import Web.Wheb.Types
 import Web.Wheb.Utils (uhOh)
+import Web.Cookie (parseCookiesText)
 
 -- * Converting to WAI application
                       
@@ -37,21 +37,21 @@ optsToApplication opts@(WhebOptions {..}) runIO r respond = do
                   Just (h, params) -> do
                       c <- W.acceptRequest pc
                       void $ runIO $ do
-                            (mRes, st) <- runMiddlewares opts whebMiddlewares baseData
-                            runDebugHandler (opts {startingState = st}) (h c) (baseData { routeParams = params })
+                            (mRes, st) <- runMiddlewares initOpts whebMiddlewares baseData
+                            runDebugHandler (initOpts {startingState = st}) (h c) (baseData { routeParams = params })
                   Nothing -> W.rejectRequest pc (B.pack "No socket for path.")
 
         handleMain r respond' = do
             pData <- parseRequestBody lbsBackEnd r
             res <- runIO $ do
                     let mwData = baseData { postData = pData }
-                    (mRes, st) <- runMiddlewares opts whebMiddlewares mwData
+                    (mRes, st) <- runMiddlewares initOpts whebMiddlewares mwData
                     case mRes of
                         Just resp -> return $ Right resp
                         Nothing -> do
                             case (findSiteMatch appSites pathChunks) of
                               Just h -> do
-                                runWhebHandler opts h st mwData
+                                runWhebHandler initOpts h st mwData
                               Nothing -> do
                                   case (findUrlMatch stdMthd pathChunks appRoutes) of
                                         Just (h, params) -> do
@@ -61,9 +61,11 @@ optsToApplication opts@(WhebOptions {..}) runIO r respond = do
             finished <- either handleError return res
             respond' finished
         baseData   = HandlerData startingCtx r ([], []) [] opts
+        parsedCookies = parseCookiesText $ (fromMaybe B.empty) $ (lookup $ CI.mk $ B.pack "Cookies") $ requestHeaders r
+        initOpts = opts {startingState = startingState {curCookies = parsedCookies}}
         pathChunks = pathInfo r
         stdMthd    = either (\_-> GET) id $ parseMethod $ requestMethod r
-        runErrorHandler eh = runWhebHandler opts eh startingState baseData
+        runErrorHandler eh = runWhebHandler initOpts eh startingState baseData
         handleError err = do
           errRes <- runIO $ runErrorHandler (defaultErrorHandler err)
           either (return . (const uhOh)) return errRes

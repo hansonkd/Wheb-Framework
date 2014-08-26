@@ -15,12 +15,14 @@ import           Web.Wheb
 import           Web.Wheb.Utils (showResponseBody)
 
 import           Web.Wheb.Plugins.Auth
+import           Web.Wheb.Plugins.Cache
 import           Web.Wheb.Plugins.Session
 
 import           Web.Wheb.Plugins.Debug.MemoryBackend
 
 data GlobalApp = GlobalApp { sessContainer :: SessionContainer
-                           , authContainer :: AuthContainer }
+                           , authContainer :: AuthContainer
+                           , cacheContainer :: CacheContainer }
 
 data RequestState = RequestState { curUser :: Maybe AuthUser }
 
@@ -31,6 +33,9 @@ instance SessionApp GlobalApp where
 instance AuthApp GlobalApp where
   getAuthContainer = authContainer
 
+instance CacheApp GlobalApp where
+  getCacheContainer = cacheContainer
+  
 -- | Needed for Auth middleware
 instance AuthState RequestState where
   getAuthUser = curUser
@@ -123,9 +128,10 @@ main = do
       -- | Initialize any backends.
       sess <- initSessionMemory
       auth <- initAuthMemory
+      cache <- initCacheMemory
       
       -- | Return your new global context.
-      return (GlobalApp sess auth, RequestState Nothing)
+      return (GlobalApp sess auth cache, RequestState Nothing)
   
   -- | Ability to easily run your handlers w/o a server.
   hResult <- runRawHandler opts $ handleSimple "Hello from console!"
@@ -134,6 +140,11 @@ main = do
   -- | Or simply debug some stuff.
   runRawHandler opts $ do
     liftIO $ putStrLn "Testing..."
+    liftIO $ putStrLn "\n\nCache..."
+    
+    setCacheValue "hello" "world"
+    (liftIO . print) =<< getCacheValue "hello"
+    
     liftIO $ putStrLn "\n\nRoutes..."
     (liftIO . print) =<< getRoute' "blog_int" []
     (liftIO . print) =<< getRoute' "blog_int" [("pk", MkChunk (3 :: Int))]

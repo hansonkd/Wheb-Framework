@@ -27,7 +27,7 @@ import Network.Wai.Handler.Warp as Warp (Settings)
 import Network.Wai.Parse (File, Param)
 import Network.WebSockets (Connection)
 import Web.Routes (Site(..))
-
+import Web.Cookie (CookiesText)
 
 -- | WhebT g s m
 --
@@ -72,7 +72,8 @@ data HandlerData g s m =
 -- | Our 'StateT' portion of 'WhebT' uses this.
 data InternalState s =
   InternalState { reqState     :: s
-                , respHeaders  :: M.Map HeaderName ByteString } 
+                , respHeaders  :: M.Map HeaderName ByteString
+                , curCookies   :: CookiesText } 
                 
 data SettingsValue = forall a. (Typeable a) => MkVal a
 

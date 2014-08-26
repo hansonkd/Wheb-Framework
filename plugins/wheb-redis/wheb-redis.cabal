@@ -43,6 +43,8 @@ description:
   .
   * <http://hackage.haskell.org/package/Wheb Wheb>
   .
+  Gives instances of Auth, Session and Cache backends for Wheb.
+  .
   /In action:/
   .
   Use with language extensions /OverloadedStrings/
@@ -81,7 +83,8 @@ library
   build-depends:       base >=4.7 && <4.8, 
                        mtl >=2.2 && <2.3, 
                        Wheb >=0.2 && <0.3, 
-                       text >=1.1 && <1.2, 
+                       text >=1.1 && <1.2,
+                       bytestring >=0.10 && <0.11,
                        hedis >=0.6 && <0.7
   
   -- Directories containing source files.

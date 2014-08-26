@@ -6,15 +6,30 @@ import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.Map as M (alter, delete, empty, insert, lookup, Map, member, update)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
+import Data.ByteString (ByteString)
 import Web.Wheb (InitM)
-import Web.Wheb.Plugins.Auth (AuthBackend(..), AuthContainer(..), AuthError(..), AuthUser(AuthUser), 
-                              getUserSessionKey, makePwHash, PwHash, UserKey, verifyPw)
-import Web.Wheb.Plugins.Session (deleteSessionValue, SessionBackend(..), SessionContainer(..))
+import Web.Wheb.Plugins.Auth
+import Web.Wheb.Plugins.Cache
+import Web.Wheb.Plugins.Session
 
 data SessionData = SessionData 
   { sessionMemory ::  TVar (M.Map Text (M.Map Text Text)) }
 data UserData = UserData
   { userStorage :: TVar (M.Map UserKey PwHash) }
+data CacheData = CacheData
+  { cacheStorage :: TVar (M.Map Text ByteString) }
+
+
+-- | In memory cache backend. Cache value
+-- will not persist after server restart and will never clear old values.
+instance CacheBackend CacheData where
+  backendCachePut key content _ (CacheData tv) = do
+    liftIO $ atomically $ modifyTVar tv (M.insert key content)
+  backendCacheGet key (CacheData tv) = do
+      curCache <- liftIO $ readTVarIO tv
+      return $ (M.lookup key curCache)
+  backendCacheDelete key (CacheData tv) =
+      liftIO $ atomically $ modifyTVar tv (M.delete key)
 
 -- | In memory session backend. Session values 
 -- will not persist after server restart.
@@ -68,3 +83,8 @@ initAuthMemory :: InitM g s m AuthContainer
 initAuthMemory = do
   tv <- liftIO $ newTVarIO $ M.empty
   return $! AuthContainer $ UserData tv
+  
+initCacheMemory :: InitM g s m CacheContainer
+initCacheMemory = do
+  tv <- liftIO $ newTVarIO $ M.empty
+  return $! CacheContainer $ CacheData tv

@@ -7,8 +7,10 @@ module Web.Wheb.Cookie
   , getCookies
   , removeCookie
   ) where
-    
+
+import Control.Monad (liftM)
 import qualified Blaze.ByteString.Builder as B (toByteString)
+import Control.Monad.State (modify, MonadState(get))
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as TS (empty)
@@ -16,8 +18,8 @@ import qualified Data.Text.Encoding as TS (decodeUtf8, encodeUtf8)
 import Data.Time.Calendar (Day(ModifiedJulianDay))
 import Data.Time.Clock (secondsToDiffTime, UTCTime(UTCTime))
 import Web.Cookie (CookiesText, def, parseCookiesText, renderSetCookie, 
-                   SetCookie(setCookieExpires, setCookieName, setCookieValue))
-import Web.Wheb.Types (WhebT)
+                   SetCookie(..))
+import Web.Wheb.Types
 import Web.Wheb.WhebT (getRequestHeader, setRawHeader)
 
 getDefaultCookie :: Monad m => WhebT g s m SetCookie
@@ -27,16 +29,16 @@ setCookie :: Monad m => Text -> Text -> WhebT g s m ()
 setCookie k v = getDefaultCookie >>= (setCookie' k v)
 
 setCookie' :: Monad m => Text -> Text -> SetCookie -> WhebT g s m ()
-setCookie' k v sc = setRawHeader ("Set-Cookie", cookieText)
+setCookie' k v sc = do
+  setRawHeader ("Set-Cookie", cookieText)
+  WhebT $ modify (\a -> a {curCookies = [(k,v)] ++ (curCookies a)})
   where cookie = sc { setCookieName = TS.encodeUtf8 k
                     , setCookieValue = TS.encodeUtf8 v
                     }
         cookieText = B.toByteString $ renderSetCookie cookie
         
 getCookies :: Monad m => WhebT g s m CookiesText
-getCookies = (getRequestHeader "Cookie") >>= 
-             (return . parseFunc . (fromMaybe TS.empty))
-  where parseFunc = parseCookiesText . TS.encodeUtf8
+getCookies = WhebT $ liftM (curCookies) get
 
 getCookie :: Monad m => Text -> WhebT g s m (Maybe Text)
 getCookie k = getCookies >>= 

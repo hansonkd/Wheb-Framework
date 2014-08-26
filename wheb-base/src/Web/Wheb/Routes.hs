@@ -31,10 +31,7 @@ import Data.Typeable (cast, Typeable)
 import Network.HTTP.Types.Method (StdMethod)
 import Network.HTTP.Types.URI (decodePathSegments, encodePathSegments)
 import Web.Routes (runSite)
-import Web.Wheb.Types (ChunkType(..), ParsedChunk(..), Route(Route), RouteParamList, 
-                       UrlBuildError(NoParam, ParamTypeMismatch), UrlParser(UrlParser),
-                       UrlPat(Chunk, Composed, FuncChunk), WhebHandlerT, SocketRoute(SocketRoute), 
-                       PackedSite(..), WhebSocket)
+import Web.Wheb.Types
 import Web.Wheb.Utils (builderToText, lazyTextToSBS, spack, spacks, builderToStrictText)
 
 -- | Build a 'Route' from a 'UrlPat'
