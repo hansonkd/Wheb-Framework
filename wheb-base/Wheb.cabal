@@ -53,14 +53,15 @@ description:
   .
   /Wheb in action:/
   .
+  Use with language extensions /OverloadedStrings/
+  .
   > import           Web.Wheb
-  > import           Data.Text.Lazy (pack)
   >
   > main :: IO ()
   > main = do
   >   opts <- genMinOpts $ do
-  >      addGET "home" rootPat $ (text (pack "Hi!"))
-  >      addGET "about" ("about" </> "something") $ html (pack "<html><body><h1>About!</h1></body></html>")
+  >      addGET "home" rootPat $ text "Hi!"
+  >      addGET "about" ("about" </> "something") $ html "<html><body><h1>About!</h1></body></html>"
   >   runWhebServer opts
   .
   /Bigger example (Stateful.hs):/
@@ -75,12 +76,10 @@ description:
   to the correct count before it reaches our handler. We use a TVar in the Global context 
   because any state changes to the handler state will not affect other requests.
   .
-  Use with language extensions /OverloadedStrings/
-  .
   >  import           Control.Concurrent.STM
   >  import           Control.Monad.IO.Class
   >  import           Data.Monoid
-  >  import           Data.Text.Lazy (Text, pack)
+  >  import           Data.Text.Lazy (Text)
   >  import           Web.Wheb
   >
   >  data MyApp = MyApp Text (TVar Int)

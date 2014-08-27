@@ -3,7 +3,8 @@
 import           Control.Monad (forM_, forM)
 
 import           Data.Maybe (fromJust, isJust)
-import           Data.Text.Lazy (Text)
+import           Data.Text (Text)
+import qualified Data.Text.Lazy as L (Text)
 import           Network.HTTP.Types.URI
 
 import           Web.Wheb
@@ -11,7 +12,7 @@ import           Web.Wheb.WhebT (getRawRoute)
 import           Web.Wheb.Routes (matchUrl, testUrlParser)
 import           Web.Wheb.Utils (lazyTextToSBS)
 
-myHandler :: Text -> MinHandler
+myHandler :: L.Text -> MinHandler
 myHandler = html
 
 main :: IO ()

@@ -29,6 +29,7 @@ Examples of plugins:
 * Sessions
 * Auth
 * [Wheb-Mongo](http://hackage.haskell.org/package/wheb-mongo)
+* [Wheb-Redis](http://hackage.haskell.org/package/wheb-redis)
 * [Wheb-Strapped](http://hackage.haskell.org/package/wheb-strapped)
 
 Getting Started
