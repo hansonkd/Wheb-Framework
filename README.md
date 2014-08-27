@@ -12,6 +12,7 @@ Wheb focuses on having a central datastructure for every part of your applicatio
 
 * The core datatype will let you build anything from a read-only server to a fully interactive web application with basic Haskell.
 * Minimal boilerplate to start your application.
+* Session, Auth and Cache interfaces are built in. Just drop in a backend.
 * Choice between type-safe web-routes or simpler pattern-based named-routes.
 * Easy to use for REST APIs
 * WebSockets
@@ -28,6 +29,7 @@ Examples of plugins:
 
 * Sessions
 * Auth
+* Cache
 * [Wheb-Mongo](http://hackage.haskell.org/package/wheb-mongo)
 * [Wheb-Redis](http://hackage.haskell.org/package/wheb-redis)
 * [Wheb-Strapped](http://hackage.haskell.org/package/wheb-strapped)
