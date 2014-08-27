@@ -6,11 +6,10 @@ import qualified Data.CaseInsensitive as CI
 import qualified Data.ByteString.Char8 as B
 import Data.Maybe (fromMaybe)
 import Control.Monad (void)
-import Control.Monad.Except (ExceptT, runExceptT)
+import Control.Monad.Except (runExceptT)
 import Control.Monad.Reader (ReaderT(runReaderT))
 import Control.Monad.State (evalStateT, StateT(runStateT))
 import qualified Data.Map as M (toList)
-import qualified Data.Text.Lazy as T (fromStrict, Text, toStrict, pack)
 import Network.HTTP.Types.Method (parseMethod, StdMethod(GET))
 import Network.Wai (Application, Request(..), Response)
 import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
@@ -41,8 +40,8 @@ optsToApplication opts@(WhebOptions {..}) runIO r respond = do
                             runDebugHandler (initOpts {startingState = st}) (h c) (baseData { routeParams = params })
                   Nothing -> W.rejectRequest pc (B.pack "No socket for path.")
 
-        handleMain r respond' = do
-            pData <- parseRequestBody lbsBackEnd r
+        handleMain r' respond' = do
+            pData <- parseRequestBody lbsBackEnd r'
             res <- runIO $ do
                     let mwData = baseData { postData = pData }
                     (mRes, st) <- runMiddlewares initOpts whebMiddlewares mwData

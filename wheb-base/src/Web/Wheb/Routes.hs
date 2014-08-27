@@ -32,7 +32,7 @@ import Network.HTTP.Types.Method (StdMethod)
 import Network.HTTP.Types.URI (decodePathSegments, encodePathSegments)
 import Web.Routes (runSite)
 import Web.Wheb.Types
-import Web.Wheb.Utils (builderToText, lazyTextToSBS, spack, spacks, builderToStrictText)
+import Web.Wheb.Utils (builderToText, lazyTextToSBS, spacks, builderToStrictText)
 
 -- | Build a 'Route' from a 'UrlPat'
 patRoute :: (Maybe TS.Text) -> 
@@ -144,10 +144,10 @@ matchPat :: [UrlPat] ->  [TS.Text] -> Maybe RouteParamList
 matchPat chunks [] = matchPat chunks [TS.pack ""]
 matchPat chunks t  = parse t chunks []
   where parse [] [] params = Just params
-        parse [] c  params = Nothing
+        parse [] _  params = Nothing
         parse (u:[]) [] params | TS.null u  = Just params
                                | otherwise = Nothing
-        parse (u:us) [] _ = Nothing
+        parse _      [] _ = Nothing
         parse (u:us) ((Chunk c):cs) params | TS.null c  = parse (u:us) cs params
                                            | u == c    = parse us cs params
                                            | otherwise = Nothing

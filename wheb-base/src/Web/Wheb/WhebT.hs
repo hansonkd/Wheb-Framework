@@ -54,7 +54,7 @@ module Web.Wheb.WhebT
 import Blaze.ByteString.Builder (Builder)
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM (atomically, readTVar, newTVarIO, writeTVar)
-import Control.Monad.Error (liftM, MonadError(throwError), MonadIO, void)
+import Control.Monad.Except (liftM, MonadError(throwError), MonadIO)
 import Control.Monad.Reader (MonadReader(ask))
 import Control.Monad.State (modify, MonadState(get))
 import qualified Data.ByteString.Lazy as LBS (ByteString, empty)
@@ -62,9 +62,9 @@ import Data.CaseInsensitive (mk)
 import Data.List (find)
 import qualified Data.Map as M (insert, lookup)
 import Data.Maybe (fromMaybe)
-import qualified Data.Text as TS (pack, empty, Text)
+import qualified Data.Text as TS
 import qualified Data.Text.Encoding as TS (decodeUtf8, encodeUtf8)
-import qualified Data.Text.Lazy as T (pack, empty, Text)
+import qualified Data.Text.Lazy as T
 import Data.Typeable (cast, Typeable)
 import Network.HTTP.Types.Header (Header)
 import Network.HTTP.Types.Status (serviceUnavailable503, status200, status302)
@@ -72,15 +72,10 @@ import Network.HTTP.Types.URI (Query)
 import Network.Wai (defaultRequest, Request(queryString, requestHeaders), responseLBS)
 import Network.Wai.Handler.Warp as W (runSettings, setPort)
 import Network.Wai.Parse (File, Param)
-import System.Posix.Signals (Handler(Catch), installHandler, sigINT, sigTSTP, sigTERM)
+import System.Posix.Signals (Handler(Catch), installHandler, sigINT, sigTERM)
 import Web.Wheb.Internal (optsToApplication, runDebugHandler)
 import Web.Wheb.Routes (generateUrl, getParam)
-import Web.Wheb.Types (CSettings, EResponse, HandlerData(..), 
-                       HandlerResponse(HandlerResponse), InternalState(..), 
-                       Route(..), RouteParamList, SettingsValue(..), 
-                       UrlBuildError(UrlNameNotFound), WhebError(..), 
-                       WhebFile(WhebFile), WhebHandlerT, WhebOptions(..), WhebT(WhebT))
-import Web.Wheb.Utils (lazyTextToSBS, sbsToLazyText)
+import Web.Wheb.Types
 
 -- * ReaderT and StateT Functionality
 
@@ -250,7 +245,9 @@ redirect c = do
     
 -- | Thow a redirect as an error
 throwRedirect :: Monad m => TS.Text -> WhebHandlerT g s m
-throwRedirect c = throwError $ ErrorStatus status302 T.empty
+throwRedirect c = do
+    setHeader (TS.pack "Location") c
+    throwError $ ErrorStatus status302 T.empty
     
 -- * Running a Wheb Application
 

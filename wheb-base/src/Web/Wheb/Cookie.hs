@@ -11,16 +11,14 @@ module Web.Wheb.Cookie
 import Control.Monad (liftM)
 import qualified Blaze.ByteString.Builder as B (toByteString)
 import Control.Monad.State (modify, MonadState(get))
-import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as TS (empty)
-import qualified Data.Text.Encoding as TS (decodeUtf8, encodeUtf8)
+import qualified Data.Text.Encoding as TS (encodeUtf8)
 import Data.Time.Calendar (Day(ModifiedJulianDay))
 import Data.Time.Clock (secondsToDiffTime, UTCTime(UTCTime))
-import Web.Cookie (CookiesText, def, parseCookiesText, renderSetCookie, 
-                   SetCookie(..))
+import Web.Cookie (CookiesText, def, renderSetCookie, SetCookie(..))
 import Web.Wheb.Types
-import Web.Wheb.WhebT (getRequestHeader, setRawHeader)
+import Web.Wheb.WhebT (setRawHeader)
 
 getDefaultCookie :: Monad m => WhebT g s m SetCookie
 getDefaultCookie = return def -- Populate with settings...
@@ -41,8 +39,7 @@ getCookies :: Monad m => WhebT g s m CookiesText
 getCookies = WhebT $ liftM (curCookies) get
 
 getCookie :: Monad m => Text -> WhebT g s m (Maybe Text)
-getCookie k = getCookies >>= 
-    (return  . (lookup k))
+getCookie k = liftM (lookup k) getCookies
 
 removeCookie :: Monad m => Text -> WhebT g s m ()
 removeCookie k = do

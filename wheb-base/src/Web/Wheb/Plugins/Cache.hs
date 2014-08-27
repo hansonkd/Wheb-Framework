@@ -15,7 +15,6 @@ module Web.Wheb.Plugins.Cache
   ) where
     
 import Control.Monad (liftM)
-import Control.Monad.IO.Class (MonadIO(..))
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.ByteString as BS (ByteString)
