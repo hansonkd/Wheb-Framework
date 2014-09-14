@@ -1,0 +1,21 @@
+<html>
+<head>
+${ csrf_meta }
+</head>
+<body>
+<form action="." method="POST">
+  <input type="hidden" name="csrf-token" value="${ csrf_token }">
+  Last name: <input type="text" name="lname"><br>
+  <input type="submit" value="Submit csrf_token">
+</form> 
+<form action="." method="POST">
+  ${ csrf_input }
+  Last name: <input type="text" name="lname"><br>
+  <input type="submit" value="Submit csrf_input">
+</form> 
+<form action="." method="POST">
+  Last name: <input type="text" name="lname"><br>
+  <input type="submit" value="Submit no csrf">
+</form> 
+</body>
+</html>

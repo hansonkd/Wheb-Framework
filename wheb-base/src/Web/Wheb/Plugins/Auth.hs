@@ -93,7 +93,6 @@ authMiddleware = do
     authSetUser cur
     return Nothing
 
-
 type UserKey = Text
 type Password = Text
 type PwHash = Text

@@ -1,10 +1,13 @@
+-- | Shows how to use Wheb and CSRF together with Strapped.
 
 {-# LANGUAGE OverloadedStrings, FlexibleInstances, MultiParamTypeClasses #-}
 
+import           Control.Monad
 import           Control.Monad.Except
 
 import           Web.Wheb
 import           Web.Wheb.Plugins.Strapped
+import           Web.Wheb.Plugins.Security
 import           Text.Strapped
 
 type MyApp = WhebT MyGlobalCtx () IO
@@ -17,7 +20,12 @@ instance StrappedApp MyGlobalCtx MyApp where
 main :: IO ()
 main = do
   opts <- generateOptions $ do
-  	sc <- initStrapped "examples/resources" ".html"
-  	addGET "." rootPat $ renderTemplate "index.html" (emptyBucket)
-  	return (MyGlobalCtx sc, ())
+    sc <- initStrapped defaultConfig "examples/resources" ".html"
+
+    addWhebMiddleware $ csrfMiddleware $ renderTemplate "csrf.html" emptyBucket
+
+    addGET "." rootPat $ renderTemplate "form.html" emptyBucket
+    addPOST "." rootPat $ text "You passed CSRF!"
+
+    return (MyGlobalCtx sc, ())
   runWhebServer opts

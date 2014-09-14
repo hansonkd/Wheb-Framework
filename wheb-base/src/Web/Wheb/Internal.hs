@@ -60,7 +60,7 @@ optsToApplication opts@(WhebOptions {..}) runIO r respond = do
             finished <- either handleError return res
             respond' finished
         baseData   = HandlerData startingCtx r ([], []) [] opts
-        parsedCookies = parseCookiesText $ (fromMaybe B.empty) $ (lookup $ CI.mk $ B.pack "Cookies") $ requestHeaders r
+        parsedCookies = parseCookiesText $ (fromMaybe B.empty) $ (lookup $ CI.mk $ B.pack "Cookie") $ requestHeaders r
         initOpts = opts {startingState = startingState {curCookies = parsedCookies}}
         pathChunks = pathInfo r
         stdMthd    = either (\_-> GET) id $ parseMethod $ requestMethod r

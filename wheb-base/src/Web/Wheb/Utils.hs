@@ -2,6 +2,8 @@
 
 module Web.Wheb.Utils where
 
+import Control.Monad (liftM)
+import Control.Monad.IO.Class (MonadIO(..))
 import Blaze.ByteString.Builder (Builder, fromLazyByteString, toLazyByteString, toByteString)
 import Data.IORef (atomicModifyIORef, newIORef, readIORef)
 import Data.Monoid ((<>), Monoid(mappend, mempty))
@@ -11,7 +13,9 @@ import qualified Data.Text.Lazy as T (fromStrict, pack, Text, toStrict)
 import qualified Data.Text.Lazy.Encoding as T (decodeUtf8, encodeUtf8)
 import Network.HTTP.Types.Status (status500)
 import Network.Wai (Response, responseBuilder, responseFile, responseLBS, responseToStream)
-import Web.Wheb.Types (HandlerResponse(..), WhebContent(..), WhebError(..), WhebFile(..), WhebHandlerT)
+import Web.Wheb.Types (HandlerResponse(..), WhebContent(..), WhebError(..), WhebFile(..), WhebHandlerT, WhebT)
+import Data.UUID (toASCIIBytes)
+import Data.UUID.V4 (nextRandom)
 
 lazyTextToSBS = TS.encodeUtf8 . T.toStrict
 sbsToLazyText = T.fromStrict . TS.decodeUtf8
@@ -39,6 +43,8 @@ showResponseBody (HandlerResponse s r) = do
     streamingBody add flush
     fmap (T.decodeUtf8 . toLazyByteString) $ readIORef builderRef
 
+makeUUID :: (MonadIO m) => WhebT g s m TS.Text
+makeUUID = liftM (TS.decodeUtf8 . toASCIIBytes) (liftIO nextRandom)
 ----------------------- Instances ------------------------
 instance WhebContent Builder where
   toResponse = responseBuilder

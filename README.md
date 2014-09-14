@@ -15,6 +15,7 @@ Wheb focuses on having a central datastructure for every part of your applicatio
 * Session, Auth and Cache interfaces are built in. Just drop in a backend.
 * Choice between type-safe web-routes or simpler pattern-based named-routes.
 * Easy to use for REST APIs
+* CSRF Protection
 * WebSockets
 * Fully database and template agnostic
 * Easy handler debugging.
