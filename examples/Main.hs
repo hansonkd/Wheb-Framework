@@ -17,6 +17,7 @@ import           Web.Wheb.Utils (showResponseBody)
 import           Web.Wheb.Plugins.Auth
 import           Web.Wheb.Plugins.Cache
 import           Web.Wheb.Plugins.Session
+import           Web.Wheb.Plugins.Security
 
 import           Web.Wheb.Plugins.Debug.MemoryBackend
 
@@ -106,6 +107,9 @@ main = do
 
       -- | Read settings at runtime.
       readSettingsFile "examples/resources/settings.wb"
+
+      -- | Add CSRF middleware.
+      addWhebMiddleware csrfMiddleware
       
       -- | Add Auth middlware for current user.
       addWhebMiddleware authMiddleware

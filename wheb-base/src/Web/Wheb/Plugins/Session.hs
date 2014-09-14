@@ -20,11 +20,9 @@ import Control.Monad (liftM)
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Maybe (fromMaybe)
 import Data.Text (pack, Text)
-import Data.Text.Encoding as T (decodeUtf8)
-import Data.UUID (toASCIIBytes)
-import Data.UUID.V4 (nextRandom)
 import Web.Wheb (getWithApp, WhebT)
 import Web.Wheb.Cookie (getCookie, setCookie)
+import Web.Wheb.Utils (makeUUID)
 
 -- | Initial pass on abstract plugin for Sessions.
 --   Possibly add support for Typable to ease typecasting.
@@ -71,7 +69,7 @@ getSessionCookie = getCookie session_cookie_key
     
 generateSessionKey :: (SessionApp a, MonadIO m) => WhebT a b m Text
 generateSessionKey = do
-  newKey <- liftM (T.decodeUtf8 . toASCIIBytes) (liftIO nextRandom)
+  newKey <- makeUUID
   setCookie session_cookie_key newKey
   return newKey
 

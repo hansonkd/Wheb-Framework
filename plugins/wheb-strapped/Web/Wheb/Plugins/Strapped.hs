@@ -13,13 +13,17 @@ module Web.Wheb.Plugins.Strapped
 
 
 import           Control.Monad.Except
-import qualified Data.Text.Lazy as T
+
 import           Web.Wheb
+import           Web.Wheb.Plugins.Security
 
 import           Text.Strapped
+import           Data.Text.Lazy as T
+import           Data.Text as TS
+
 
 data StrappedContainer m = StrappedContainer 
-    { renderconfig  :: RenderConfig 
+    { renderconfig  :: StrappedConfig 
     , defaultBucket :: InputBucket m
     }
 
@@ -32,8 +36,16 @@ initStrapped fp s = do
     mtmpls <- liftIO $ templateStoreFromDirectory fp s
     case mtmpls of
         Left err -> error (show err)
-        Right tmpls -> return $ StrappedContainer (defaultConfig { templateStore = tmpls }) []
+        Right tmpls -> return $ StrappedContainer (defaultConfig { templateStore = tmpls }) csrf_bucket
 
+    where csrf_bucket = bucketFromList [ ("csrf_token", Func $ \_ -> lift $ liftM LitText getCSRFToken)
+                                       , ("csrf_input", Func $ \_ -> lift $ do 
+                                                                        tok <- getCSRFToken
+                                                                        return $ LitText $ 
+                                                                                "<input type=\"hidden\" name=\"csrf-token\" value=\"" `TS.append` tok `TS.append` "\">")
+                                       , ("csrf_meta", Func $ \_ -> lift $ do 
+                                                                        tok <- getCSRFToken
+                                                                        return $ LitText $ "<meta name=\"csrf-token\" content=\"" `TS.append` tok `TS.append` "\">")]
 -- | Render a template or throw an error
 renderTemplate :: (MonadIO m, StrappedApp g (WhebT g s m)) => String -> InputBucket (WhebT g s m) -> WhebHandlerT g s m
 renderTemplate tName bucket = do
