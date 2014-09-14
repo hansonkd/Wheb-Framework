@@ -20,7 +20,7 @@ instance StrappedApp MyGlobalCtx MyApp where
 main :: IO ()
 main = do
   opts <- generateOptions $ do
-    sc <- initStrapped "examples/resources" ".html"
+    sc <- initStrapped defaultConfig "examples/resources" ".html"
 
     addWhebMiddleware $ csrfMiddleware $ renderTemplate "csrf.html" emptyBucket
 

@@ -31,12 +31,12 @@ class StrappedApp g m where
     getStrappedContainer :: g -> StrappedContainer m
 
 -- | Load Strapped from a directory matching the extention
-initStrapped :: MonadIO m => FilePath -> String -> InitM g s m (StrappedContainer (WhebT g s m))
-initStrapped fp s = do
-    mtmpls <- liftIO $ templateStoreFromDirectory fp s
+initStrapped :: MonadIO m => StrappedConfig -> FilePath -> String -> InitM g s m (StrappedContainer (WhebT g s m))
+initStrapped config fp s = do
+    mtmpls <- liftIO $ templateStoreFromDirectory config fp s
     case mtmpls of
         Left err -> error (show err)
-        Right tmpls -> return $ StrappedContainer (defaultConfig { templateStore = tmpls }) csrf_bucket
+        Right tmpls -> return $ StrappedContainer (config { templateStore = tmpls }) csrf_bucket
 
     where csrf_bucket = bucketFromList [ ("csrf_token", Func $ \_ -> lift $ liftM LitText getCSRFToken)
                                        , ("csrf_input", Func $ \_ -> lift $ do 
