@@ -33,6 +33,7 @@ setCookie' k v sc = do
   secureCookie <- getSetting'' "enable-secure-cookies" False
   let cookie = sc { setCookieName = TS.encodeUtf8 k
                   , setCookieValue = TS.encodeUtf8 v
+				  , setCookieHttpOnly = secureCookie
                   , setCookieSecure = secureCookie
                   }
       cookieText = B.toByteString $ renderSetCookie cookie
