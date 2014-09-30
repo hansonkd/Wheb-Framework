@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings, FlexibleInstances, MultiParamTypeClasses #-}
 
 import           Control.Monad
-import           Control.Monad.Except
+import           Control.Monad.Trans.Except
 
 import           Web.Wheb
 import           Web.Wheb.Plugins.Strapped
