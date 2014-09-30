@@ -2,8 +2,8 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Web.Wheb.Plugins.Auth 
-  ( 
+module Web.Wheb.Plugins.Auth
+  (
   -- * Main functions
     login
   , logout
@@ -11,10 +11,10 @@ module Web.Wheb.Plugins.Auth
   , getCurrentUser
   , queryCurrentUser
   , loginRequired
-  
+
   -- * Middleware
-  , authMiddleware 
-  
+  , authMiddleware
+
   -- * Types
   , AuthUser (..)
   , AuthContainer (..)
@@ -26,21 +26,21 @@ module Web.Wheb.Plugins.Auth
   , UserKey
   , Password
   , PwHash
-  
+
   -- * Utils
   , makePwHash
   , verifyPw
   , getUserSessionKey
   ) where
 
-import Control.Monad.Except (liftM, MonadError(throwError), MonadIO(..))
+import Control.Monad.Error (liftM, MonadError(throwError), MonadIO(..))
 import Crypto.PasswordStore (makePassword, verifyPassword)
 import Data.Text.Encoding as ES (decodeUtf8, encodeUtf8)
 import Data.Text as T (pack, Text)
-import Web.Wheb (getHandlerState, getWithApp, modifyHandlerState', 
+import Web.Wheb (getHandlerState, getWithApp, modifyHandlerState',
                  WhebError(Error403), WhebHandlerT, WhebMiddleware, WhebT)
 import Web.Wheb.Plugins.Session (deleteSessionValue, getSessionValue', SessionApp, setSessionValue)
-    
+
 -- * Auth functions
 
 -- | Register a user
@@ -72,7 +72,7 @@ getCurrentUser = liftM getAuthUser getHandlerState
 -- | Explicitly query a user with the backend. Since this is an IO hit, it is
 --   better to use the middleware and 'getCurrentUser'
 queryCurrentUser :: (AuthApp a, MonadIO m) => WhebT a b m (Maybe AuthUser)
-queryCurrentUser = getUserSessionKey >>= 
+queryCurrentUser = getUserSessionKey >>=
                  getSessionValue' (T.pack "") >>=
                  (\uid -> runWithContainer $ backendGetUser uid)
 
@@ -110,9 +110,9 @@ data AuthContainer = forall r. AuthBackend r => AuthContainer r
 class SessionApp a => AuthApp a where
   getAuthContainer :: a -> AuthContainer
 
--- | Minimal implementation for a 
+-- | Minimal implementation for a
 class AuthState a where
-  getAuthUser    :: a -> PossibleUser 
+  getAuthUser    :: a -> PossibleUser
   modifyAuthUser :: (PossibleUser -> PossibleUser) -> a -> a
 
 -- | Interface for creating Auth backends
@@ -122,11 +122,11 @@ class AuthBackend c where
   backendGetUser  :: (AuthApp a, MonadIO m) => UserKey -> c -> WhebT a b m (Maybe AuthUser)
   backendLogout   :: (AuthApp a, MonadIO m) => c -> WhebT a b m ()
   backendLogout _ =  getUserSessionKey >>= deleteSessionValue
-  
+
 -- * Internal
 
 runWithContainer :: (AuthApp a, MonadIO m) =>
-                    (forall r. AuthBackend r => r -> WhebT a s m b) -> 
+                    (forall r. AuthBackend r => r -> WhebT a s m b) ->
                     WhebT a s m b
 runWithContainer f = do
   AuthContainer authStore <- getWithApp getAuthContainer
@@ -139,9 +139,9 @@ getUserSessionKey :: (AuthApp a, MonadIO m) => WhebT a b m Text
 getUserSessionKey = return $ T.pack "user-id" -- later read from settings.
 
 makePwHash :: MonadIO m => Password -> WhebT a b m PwHash
-makePwHash pw = liftM (ES.decodeUtf8) $ 
+makePwHash pw = liftM (ES.decodeUtf8) $
                         liftIO $ makePassword (ES.encodeUtf8 $ pw) 14
 
 verifyPw :: Text -> Text -> Bool
-verifyPw pw hash = verifyPassword (ES.encodeUtf8 $ pw) 
+verifyPw pw hash = verifyPassword (ES.encodeUtf8 $ pw)
                           (ES.encodeUtf8 $ hash)

@@ -2,14 +2,20 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# OPTIONS_GHC -fno-warn-orphans       #-}
 
 module Web.Wheb.Types where
 
 import Control.Applicative (Applicative)
 import Control.Concurrent.STM (TVar)
-import Control.Monad.Except (ExceptT(ExceptT), MonadError(..), MonadIO, MonadTrans(..))
-import Control.Monad.Reader (ReaderT(ReaderT))
-import Control.Monad.State (StateT)
+
+import Control.Monad.Trans.Except (ExceptT(ExceptT))
+import qualified Control.Monad.Trans.Except as ExceptT (throwE, catchE, mapExceptT)
+import Control.Monad.Error (MonadError(..), MonadIO, MonadTrans(..))
+import Control.Monad.Reader (ReaderT(ReaderT), MonadReader(..))
+import Control.Monad.State (StateT, MonadState(..))
 import Control.Monad.Writer ((<>), Monoid(mappend, mempty), WriterT(WriterT))
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LBS (ByteString)
@@ -32,13 +38,13 @@ import Web.Cookie (CookiesText)
 -- | WhebT g s m
 --
 --   * g -> The global confirgured context (Read-only data shared between threads)
--- 
+--
 --   * s -> Handler state for each request.
 --
 --   * m -> Monad we are transforming
-newtype WhebT g s m a = WhebT 
-  { runWhebT :: ExceptT WhebError 
-                  (ReaderT (HandlerData g s m) (StateT (InternalState s) m)) a 
+newtype WhebT g s m a = WhebT
+  { runWhebT :: ExceptT WhebError
+                  (ReaderT (HandlerData g s m) (StateT (InternalState s) m)) a
   } deriving ( Functor, Applicative, Monad, MonadIO )
 
 instance MonadTrans (WhebT g s) where
@@ -47,6 +53,20 @@ instance MonadTrans (WhebT g s) where
 instance (Monad m) => MonadError WhebError (WhebT g s m) where
     throwError = WhebT . throwError
     catchError (WhebT m) f = WhebT  (catchError m (runWhebT . f))
+
+instance Monad m => MonadError e (ExceptT e m) where
+    throwError = ExceptT.throwE
+    catchError = ExceptT.catchE
+
+instance MonadReader r m => MonadReader r (ExceptT e m) where
+    ask   = lift ask
+    local = ExceptT.mapExceptT . local
+    reader = lift . reader
+
+instance MonadState s m => MonadState s (ExceptT e m) where
+    get = lift get
+    put = lift . put
+    state = lift . state
 
 -- | Writer Monad to build options.
 newtype InitM g s m a = InitM { runInitM :: WriterT (InitOptions g s m) IO a}
@@ -62,7 +82,7 @@ data WhebFile = WhebFile TS.Text
 data HandlerResponse = forall a . WhebContent a => HandlerResponse Status a
 
 -- | Our 'ReaderT' portion of 'WhebT' uses this.
-data HandlerData g s m = 
+data HandlerData g s m =
   HandlerData { globalCtx      :: g
               , request        :: Request
               , postData       :: ([Param], [File LBS.ByteString])
@@ -73,8 +93,8 @@ data HandlerData g s m =
 data InternalState s =
   InternalState { reqState     :: s
                 , respHeaders  :: M.Map HeaderName ByteString
-                , curCookies   :: CookiesText } 
-                
+                , curCookies   :: CookiesText }
+
 data SettingsValue = forall a. (Typeable a) => MkVal a
 
 data WhebError = Error500 T.Text
@@ -96,18 +116,18 @@ data InitOptions g s m =
               , initCleanup     :: [ IO () ] }
 
 instance Monoid (InitOptions g s m) where
-  mappend (InitOptions a1 ws1 s1 b1 c1 d1 e1) (InitOptions a2 ws2 s2 b2 c2 d2 e2) = 
+  mappend (InitOptions a1 ws1 s1 b1 c1 d1 e1) (InitOptions a2 ws2 s2 b2 c2 d2 e2) =
       InitOptions (a1 <> a2)
                   (ws1 <> ws2)
                   (s1 <> s2)
                   (b1 <> b2)
-                  (c2 . c1) 
-                  (d1 <> d2) 
+                  (c2 . c1)
+                  (d1 <> d2)
                   (e1 <> e2)
   mempty = InitOptions mempty mempty mempty mempty id mempty mempty
 
 -- | The main option datatype for Wheb
-data WhebOptions g s m = MonadIO m => 
+data WhebOptions g s m = MonadIO m =>
   WhebOptions { appRoutes           :: [ Route g s m ]
               , appWhebSockets      :: [ SocketRoute g s m ]
               , appSites            :: [ PackedSite g s m ]
@@ -125,7 +145,7 @@ data WhebOptions g s m = MonadIO m =>
 type EResponse = Either WhebError Response
 
 type CSettings = M.Map TS.Text SettingsValue
-    
+
 type WhebHandler g s      = WhebT g s IO HandlerResponse
 type WhebHandlerT g s m   = WhebT g s m HandlerResponse
 type WhebMiddleware g s m = WhebT g s m (Maybe HandlerResponse)
@@ -149,14 +169,14 @@ instance Show ParsedChunk where
   show (MkChunk a) = show a
 
 data UrlBuildError = NoParam | ParamTypeMismatch TS.Text | UrlNameNotFound
-     deriving (Show) 
+     deriving (Show)
 
 -- | A Parser should be able to extract params and regenerate URL from params.
-data UrlParser = UrlParser 
+data UrlParser = UrlParser
     { parseFunc :: ([TS.Text] -> Maybe RouteParamList)
     , genFunc   :: (RouteParamList -> Either UrlBuildError TS.Text) }
 
-data Route g s m = Route 
+data Route g s m = Route
   { routeName    :: (Maybe TS.Text)
   , routeMethod  :: MethodMatch
   , routeParser  :: UrlParser
@@ -172,7 +192,7 @@ data ChunkType = IntChunk | TextChunk
 
 data UrlPat = Chunk TS.Text
             | Composed [UrlPat]
-            | FuncChunk 
+            | FuncChunk
                 { chunkParamName :: TS.Text
                 , chunkFunc :: (TS.Text -> Maybe ParsedChunk)
                 , chunkType :: ChunkType }
