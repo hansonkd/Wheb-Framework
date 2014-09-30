@@ -20,7 +20,7 @@ module Web.Wheb.Plugins.Mongo (
 
 import           Control.Exception
 import           Control.Monad
-import           Control.Monad.Except (throwError)
+import           Control.Monad.Trans.Except (throwError)
 import           Data.Bson as B
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
