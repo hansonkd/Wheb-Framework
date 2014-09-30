@@ -144,7 +144,7 @@ library
                        stm >=2.4 && < 2.5, 
                        unix >= 2.7 && < 2.8,
                        web-routes >=0.27 && <0.28,
-                       websockets >= 0.8 && <0.9,
+                       websockets >= 0.8 && <0.10,
                        wai-websockets >= 3.0 && < 3.1
 
   hs-source-dirs:   src
