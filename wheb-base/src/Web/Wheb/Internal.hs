@@ -6,7 +6,7 @@ import qualified Data.CaseInsensitive as CI
 import qualified Data.ByteString.Char8 as B
 import Data.Maybe (fromMaybe)
 import Control.Monad (void)
-import Control.Monad.Except (runExceptT)
+import Control.Monad.Trans.Except (runExceptT)
 import Control.Monad.Reader (ReaderT(runReaderT))
 import Control.Monad.State (evalStateT, StateT(runStateT))
 import qualified Data.Map as M (toList)
