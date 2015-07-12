@@ -11,7 +11,7 @@ data UrlPair = UrlPair UrlPat RouteParamList
 
 -- | Produce semi-clean strings of reasonable length to prevent collision.
 genString :: Gen String
-genString = suchThat (listOf1 $ elements ['a'..'Z']) (\n -> (length n) > 5)
+genString = suchThat (listOf $ elements ['a' .. 'Z']) (\n -> (length n) > 5)
 
 instance Show UrlPair where
     show (UrlPair up pl) = "UrlParser | " ++ (show up)

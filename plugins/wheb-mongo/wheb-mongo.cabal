@@ -70,3 +70,7 @@ library
                        Wheb >=0.3 && < 0.4, 
                        bson >=0.3 && <0.4, 
                        mtl >= 2.2.1 && < 2.3
+
+source-repository head
+  type:     git
+  location: git@github.com:hansonkd/Wheb-Framework.git
