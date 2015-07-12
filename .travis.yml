@@ -20,8 +20,7 @@ install:
  - cabal --version
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
  - travis_retry cabal update
- - cabal install --enable-tests --enable-benchmarks
- - cabal install wheb-base/Wheb.cabal --enable-tests
+ - cabal install wheb-base/Wheb.cabal --enable-tests --enable-benchmarks
  - cabal install plugins/wheb-mongo/wheb-mongo.cabal --enable-tests
  - cabal install plugins/wheb-strapped/wheb-strapped.cabal --enable-tests
  - cabal install plugins/wheb-redis/wheb-redis.cabal --enable-tests
