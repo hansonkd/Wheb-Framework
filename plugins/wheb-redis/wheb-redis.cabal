@@ -1,6 +1,6 @@
 
 name:                wheb-redis
-version:             0.0.1.1
+version:             0.0.1.2
 synopsis:            Redis connection for Wheb
 
 -- A longer description of the package.
@@ -81,9 +81,9 @@ library
   
   -- Other library packages from which modules are imported.
   build-depends:       base >=4.7 && <4.9,
-                       mtl >=2.2 && <2.3, 
+                       mtl >=2.2.1 && <2.3,
                        Wheb >=0.3 && <0.4, 
-                       text >=1.1 && <1.2,
+                       text >=1.1 && <1.3,
                        bytestring >=0.10 && <0.11,
                        hedis >=0.6 && <0.7
   
@@ -92,4 +92,3 @@ library
   
   -- Base language which the package is written in.
   default-language:    Haskell2010
-  
