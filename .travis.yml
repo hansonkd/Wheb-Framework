@@ -21,11 +21,11 @@ install:
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
  - travis_retry cabal update
  - cabal install wheb-base/Wheb.cabal --enable-tests --enable-benchmarks
- - cabal install plugins/wheb-mongo/wheb-mongo.cabal --enable-tests
  - cabal install plugins/wheb-strapped/wheb-strapped.cabal --enable-tests
  - cabal install plugins/wheb-redis/wheb-redis.cabal --enable-tests
+ - cabal install plugins/wheb-mongo/wheb-mongo.cabal --enable-tests
  - cabal install blaze-html
- - cabal install web-routes-boomerang
+ - cabal install web-routghces-boomerang
  - |
     if [ $GHCVER = "head" ] || [ ${GHCVER%.*} = "7.8" ] || [ ${GHCVER%.*} = "7.10" ]; then
       travis_retry sudo apt-get install happy-1.19.4 alex-3.1.3
