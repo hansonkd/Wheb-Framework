@@ -1,5 +1,7 @@
 language: haskell
-ghc: 7.8
+ghc:
+  - 7.8
+  - 7.10
 install:
   - cabal install alex
   - cabal install wheb-base/Wheb.cabal --enable-tests

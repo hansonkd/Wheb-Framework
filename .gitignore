@@ -8,3 +8,5 @@ workshop/
 *.chi
 *.chs.h
 .virthualenv
+.stack-work
+stack.yaml

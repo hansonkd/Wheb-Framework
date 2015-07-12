@@ -1,6 +1,6 @@
 
 name:                wheb-redis
-version:             0.0.1.0
+version:             0.0.1.1
 synopsis:            Redis connection for Wheb
 
 -- A longer description of the package.
@@ -80,7 +80,7 @@ library
   other-extensions:    OverloadedStrings
   
   -- Other library packages from which modules are imported.
-  build-depends:       base >=4.7 && <4.8, 
+  build-depends:       base >=4.7 && <4.9,
                        mtl >=2.2 && <2.3, 
                        Wheb >=0.3 && <0.4, 
                        text >=1.1 && <1.2,
