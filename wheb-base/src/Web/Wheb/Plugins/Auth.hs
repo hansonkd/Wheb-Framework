@@ -98,6 +98,7 @@ type Password = Text
 type PwHash = Text
 
 data AuthError = DuplicateUsername | UserDoesNotExist | InvalidPassword
+              |  InternalError
   deriving (Show)
 
 data AuthUser = AuthUser { uniqueUserKey :: UserKey } deriving (Show)
