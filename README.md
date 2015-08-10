@@ -1,6 +1,6 @@
 # Wheb
 
-The Frictionless Haskell WAI Framework
+The Frictionless Haskell WAI Framework.
 
 ### About
 
