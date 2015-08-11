@@ -1,4 +1,4 @@
-# NB: don't set `language: haskell` here
+sudo: false
 
 # The following enables several GHC versions to be tested; often it's enough to test only against the last release in a major GHC version. Feel free to omit lines listings versions you don't need/want testing for.
 env:
@@ -7,7 +7,6 @@ env:
  - CABALVER=1.18 GHCVER=7.8.4
  - CABALVER=1.22 GHCVER=7.10.1
  - CABALVER=1.22 GHCVER=7.10.2
- - CABALVER=head GHCVER=head   # see section about GHC HEAD snapshots
 
 # Note: the distinction between `before_install` and `install` is not important.
 before_install:
@@ -54,6 +53,16 @@ script:
  - ghc -c examples/WebRoutes.hs
  - ghc -c examples/WebSockets.hs
  - ghc -c examples/Redis.hs
+ - cd plugins/wheb-mongo
+ - cabal configure --enable-tests
+ - cabal build
+ - cabal test
+ - cd ../..
+ - cd plugins/wheb-redis
+ - cabal configure --enable-tests
+ - cabal build
+ - cabal test
+ - cd ../..
 
 # Check that the resulting source distribution can be built & installed.
 # If there are no other `.tar.gz` files in `dist`, this can be even simpler:
