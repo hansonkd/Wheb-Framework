@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Web.Wheb.Plugins.Strapped
+module Wheb.Plugins.Strapped
   ( StrappedContainer(..)
   , StrappedApp (..)
   , renderTemplate
@@ -14,8 +14,8 @@ module Web.Wheb.Plugins.Strapped
 
 import           Control.Monad.Except
 
-import           Web.Wheb
-import           Web.Wheb.Plugins.Security
+import           Wheb
+import           Wheb.Plugins.Security
 
 import           Text.Strapped
 import           Data.Text.Lazy as T

@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Web.Wheb.Plugins.Cache
+module Wheb.Plugins.Cache
   ( CacheContainer (..)
   , CacheApp (..)
   , CacheBackend (..)
@@ -18,7 +18,7 @@ import Control.Monad (liftM)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.ByteString as BS (ByteString)
-import Web.Wheb
+import Wheb
 
 data CacheContainer = forall r. CacheBackend r => CacheContainer r
 

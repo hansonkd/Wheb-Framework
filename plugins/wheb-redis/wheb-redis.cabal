@@ -49,8 +49,8 @@ description:
   .
   Use with language extensions /OverloadedStrings/
   .
-  >  import Web.Wheb
-  >  import Web.Wheb.Plugins.Redis
+  >  import Wheb
+  >  import Wheb.Plugins.Redis
   >  
   >  data MyCtx = MyCtx RedisContainer
   >  
@@ -71,7 +71,7 @@ description:
 
 library
   -- Modules exported by the library.
-  exposed-modules:     Web.Wheb.Plugins.Redis
+  exposed-modules:     Wheb.Plugins.Redis
   
   -- Modules included in this library but not exported.
   -- other-modules:       

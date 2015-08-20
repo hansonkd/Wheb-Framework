@@ -4,7 +4,7 @@ This module reexports Wheb modules. It should be the only thing you need to
 import to get started.
 
 @
-import           Web.Wheb
+import           Wheb
 import           Data.Text.Lazy (pack)
 
 main :: IO ()
@@ -14,7 +14,7 @@ main = do
 @
 
 -}
-module Web.Wheb 
+module Wheb 
   (
   -- * Handlers
   -- ** ReaderT and StateT Functionality
@@ -70,10 +70,12 @@ module Web.Wheb
   
   -- ** Running Wheb
   , runWhebServer
-  , runWhebServerT
   , runRawHandler
-  , runRawHandlerT
+  , runRawHandler'
   
+  -- ** Running Commands
+  , runTerminalCommand
+    
   -- * Initialize
   -- ** Routes
   -- *** Named routes convenience functions
@@ -85,6 +87,13 @@ module Web.Wheb
   , addRoute
   , addRoutes
   , catchAll
+  -- ** Commands
+  , addCommand
+  , addIOCommand
+  , addCommand'
+  -- *** Commands Using Optparse-Applicative
+  , addOptparseCommand
+  , addOptparseIOCommand
   -- ** Sockets 
   , addWhebSocket
   -- ** Sites
@@ -113,18 +122,25 @@ module Web.Wheb
   , grabText
   , pT
   , pS
+  -- ** Prelude
+  , addPrelude
   -- * Utilities
   , spack
   , MonadIO(..)
+  , ExitCode(..)
   -- * Types
-  , module Web.Wheb.Types
+  , module Wheb.Types
   ) where
 
 
 import Control.Monad.IO.Class (MonadIO(..))
-import Web.Wheb.InitM 
-import Web.Wheb.Routes
-import Web.Wheb.Types 
-import Web.Wheb.Utils
-import Web.Wheb.WhebT 
-import Web.Wheb.Cookie
+import System.Exit (ExitCode(..))
+
+import Wheb.InitM 
+import Wheb.Routes
+import Wheb.Types 
+import Wheb.Utils
+import Wheb.WhebT 
+import Wheb.Cookie
+import Wheb.Commands
+import Wheb.Prelude

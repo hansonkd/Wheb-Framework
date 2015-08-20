@@ -4,13 +4,13 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Web.Wheb.Plugins.Security where
+module Wheb.Plugins.Security where
 
 import Control.Monad
 import Network.Wai
-import Web.Wheb
-import Web.Wheb.Utils
-import Web.Wheb.Plugins.Session
+import Wheb
+import Wheb.Utils
+import Wheb.Plugins.Session
 import Data.Text as T
 import Network.HTTP.Types
 

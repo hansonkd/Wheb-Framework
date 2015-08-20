@@ -1,33 +1,35 @@
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE Rank2Types                 #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 
-module Web.Wheb.Types where
+module Wheb.Types where
 
-import Control.Applicative (Applicative)
-import Control.Concurrent.STM (TVar)
-import Control.Monad.Except (ExceptT(ExceptT), MonadError(..), MonadIO, MonadTrans(..))
-import Control.Monad.Reader (ReaderT(ReaderT))
-import Control.Monad.State (StateT)
-import Control.Monad.Writer ((<>), Monoid(mappend, mempty), WriterT(WriterT))
-import Data.ByteString (ByteString)
+import           Control.Applicative (Applicative)
+import           Control.Concurrent.STM (TVar)
+import           Control.Monad.Except (ExceptT(ExceptT), MonadError(..),
+                                       MonadIO, MonadTrans(..))
+import           Control.Monad.Reader (ReaderT(ReaderT))
+import           Control.Monad.State.Strict (StateT)
+import           Control.Monad.Writer ((<>), Monoid(mappend, mempty), WriterT(WriterT))
+import           Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LBS (ByteString)
-import Data.List (intercalate)
-import Data.Map as M (Map)
-import Data.String (IsString(..))
-import qualified Data.Text.Lazy as T (pack, Text, unpack)
+import           Data.List (intercalate)
+import           Data.Map as M (Map)
+import           Data.String (IsString(..))
+import qualified Data.Text.Lazy as T (Text)
 import qualified Data.Text as TS (pack, Text, unpack)
-import Data.Typeable (Typeable)
-import Network.HTTP.Types.Header (HeaderName, ResponseHeaders)
-import Network.HTTP.Types.Method (StdMethod)
-import Network.HTTP.Types.Status (Status)
-import Network.Wai (Middleware, Request, Response)
-import Network.Wai.Handler.Warp as Warp (Settings)
-import Network.Wai.Parse (File, Param)
-import Network.WebSockets (Connection)
-import Web.Routes (Site(..))
-import Web.Cookie (CookiesText)
+import           Data.Typeable (Typeable)
+import           Network.HTTP.Types.Header (HeaderName, ResponseHeaders)
+import           Network.HTTP.Types.Method (StdMethod)
+import           Network.HTTP.Types.Status (Status)
+import           Network.Wai (Middleware, Request, Response)
+import           Network.Wai.Handler.Warp as Warp (Settings)
+import           Network.Wai.Parse (File, Param)
+import           Network.WebSockets (Connection)
+import           Web.Routes (Site(..))
+import           Web.Cookie (CookiesText)
 
 -- | WhebT g s m
 --
@@ -63,11 +65,12 @@ data HandlerResponse = forall a . WhebContent a => HandlerResponse Status a
 
 -- | Our 'ReaderT' portion of 'WhebT' uses this.
 data HandlerData g s m = 
-  HandlerData { globalCtx      :: g
-              , request        :: Request
-              , postData       :: ([Param], [File LBS.ByteString])
-              , routeParams    :: RouteParamList
-              , globalSettings :: WhebOptions g s m }
+  HandlerData { globalCtx               :: g
+              , request                 :: Request
+              , postData                :: ([Param], [File LBS.ByteString])
+              , routeParams             :: RouteParamList
+              , handlerRunTimeSettings  :: CSettings
+              , handlerAppRoutes        :: [ Route g s m ]}
 
 -- | Our 'StateT' portion of 'WhebT' uses this.
 data InternalState s =
@@ -90,27 +93,30 @@ data InitOptions g s m =
   InitOptions { initRoutes      :: [ Route g s m ]
               , initWhebSockets :: [ SocketRoute g s m ]
               , initSites       :: [ PackedSite g s m ]
+              , initCommands    :: [ Command g s m ]
               , initSettings    :: CSettings
               , initWaiMw       :: Middleware
               , initWhebMw      :: [ WhebMiddleware g s m ]
               , initCleanup     :: [ IO () ] }
 
 instance Monoid (InitOptions g s m) where
-  mappend (InitOptions a1 ws1 s1 b1 c1 d1 e1) (InitOptions a2 ws2 s2 b2 c2 d2 e2) = 
+  mappend (InitOptions a1 ws1 s1 com1 b1 c1 d1 e1) (InitOptions a2 ws2 s2 com2 b2 c2 d2 e2) = 
       InitOptions (a1 <> a2)
                   (ws1 <> ws2)
                   (s1 <> s2)
+                  (com1 <> com2)
                   (b1 <> b2)
                   (c2 . c1) 
                   (d1 <> d2) 
                   (e1 <> e2)
-  mempty = InitOptions mempty mempty mempty mempty id mempty mempty
+  mempty = InitOptions mempty mempty mempty mempty mempty id mempty mempty
 
 -- | The main option datatype for Wheb
-data WhebOptions g s m = MonadIO m => 
+data WhebOptions g s m = MonadIO m =>
   WhebOptions { appRoutes           :: [ Route g s m ]
               , appWhebSockets      :: [ SocketRoute g s m ]
               , appSites            :: [ PackedSite g s m ]
+              , commands            :: [ Command g s m ]
               , runTimeSettings     :: CSettings
               , warpSettings        :: Warp.Settings
               , startingCtx         :: g -- ^ Global ctx shared between requests
@@ -120,7 +126,8 @@ data WhebOptions g s m = MonadIO m =>
               , defaultErrorHandler :: WhebError -> WhebHandlerT g s m
               , shutdownTVar        :: TVar Bool
               , activeConnections   :: TVar Int
-              , cleanupActions      :: [ IO () ] }
+              , cleanupActions      :: [ IO () ] 
+              , runToIO             :: (forall a . m a -> IO a)}
 
 type EResponse = Either WhebError Response
 
@@ -137,6 +144,12 @@ type MinHandler = MinWheb HandlerResponse
 -- | A minimal type for WhebOptions
 type MinOpts = WhebOptions () () IO
 
+-- | Command to execute via the command line
+data Command g s m = 
+  Command { commandName :: TS.Text 
+          , commandRun  :: ([TS.Text] -> WhebOptions g s m -> IO ())
+          }
+              
 -- * Routes
 data PackedSite g s m = forall a . PackedSite TS.Text (Site a (WhebHandlerT g s m))
 

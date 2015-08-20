@@ -8,7 +8,7 @@ import Text.Boomerang.TH    (makeBoomerangs)
 import Web.Routes           (Site(..), RouteT(..), decodePathInfo, encodePathInfo, runSite, showURL)
 import Web.Routes.Boomerang (Router, (<>), (</>), int, parse1, boomerangSiteRouteT, anyText, parseTexts)
 
-import Web.Wheb hiding ((</>))
+import Wheb hiding ((</>))
 
 -- | the routes
 data Sitemap

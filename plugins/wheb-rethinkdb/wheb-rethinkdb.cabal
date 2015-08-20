@@ -1,6 +1,6 @@
-name:                wheb-mongo
-version:             0.0.3.1
-synopsis:            MongoDB plugin for Wheb
+name:                wheb-rethinkdb
+version:             0.1.0.0
+synopsis:            rethinkDB plugin for Wheb
 homepage:            https://github.com/hansonkd/Wheb-Framework
 license:             BSD3
 license-file:        LICENSE
@@ -10,21 +10,21 @@ category:            Database
 build-type:          Simple
 cabal-version:       >=1.8
 description:         
-  Wheb plugin for MongoDB.
+  Wheb plugin for RethinkDB.
   .
-  * Implements SessionBackend and AuthBackend instances using MongoDB and Wheb.
+  * Implements SessionBackend and AuthBackend instances using RethinkDB and Wheb.
   .
   * Creates simple interface for arbitrary MongoDB actions using <http://hackage.haskell.org/package/Wheb Wheb>
   .
-  * Creates simple interface for arbitrary MongoDB actions using <http://hackage.haskell.org/package/mongoDB mongoDB>
+  * Creates simple interface for arbitrary MongoDB actions using <http://hackage.haskell.org/package/rethinkdb rethinkDB>
   .
   For a complete example, see the examples folder at <https://github.com/hansonkd/Wheb-Framework/tree/master/examples github>
   . 
-  You can override the collection names for the Auth and Session documents by using 'addSetting' and setting keys for \"session-collection\"
-  and \"auth-collection\"
+  You can override the collection names for the Auth and Session documents by using 'addSetting' and setting keys for \"session-table\"
+  and \"auth-table\"
   .
   > opts <- generateOptions $ do
-  >    addSetting "session-collection" "my-collection"
+  >    addSetting "session-table" "my-table"
   .
   Reimplimentation of official example below. Use with language extensions /OvererloadedStrings/ & /ExtendedDefaultRules/.
   .
@@ -63,21 +63,19 @@ description:
   >    runWhebServer opts
 
 library
-  exposed-modules:     Wheb.Plugins.Mongo
+  exposed-modules:     Wheb.Plugins.RethinkDB
   build-depends:       base >=4.7 && <4.9,
                        text >= 1.0 && < 1.3,
-                       mongoDB >=2.0 && < 2.1,
+                       rethinkdb >=0.1 && < 2.1,
                        Wheb >=0.3 && < 0.4, 
-                       bson >=0.3 && <0.4, 
                        mtl >= 2.2.1 && < 2.3
                        
 test-suite Main
   type:            exitcode-stdio-1.0
   build-depends:   base >= 4.7 && < 4.9,
                    Wheb >=0.3 && <0.4,
-                   wheb-mongo >= 0.0.3.1 && < 0.0.4,
-                   bson >=0.3 && <0.4, 
-                   mongoDB >=2.0 && < 2.1,
+                   wheb-rethinkdb >= 0.1 && < 0.2,
+                   rethinkdb >=2.0 && < 2.1,
                    HUnit >= 1.2 && < 2,
                    QuickCheck >= 2.4,
                    tasty >= 0.10,

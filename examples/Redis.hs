@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import Web.Wheb
-import Web.Wheb.Plugins.Redis
-import Web.Wheb.Plugins.Cache
+import Wheb
+import Wheb.Plugins.Redis
+import Wheb.Plugins.Cache
 
 data MyCtx = MyCtx RedisContainer RedisCacheContainer
 

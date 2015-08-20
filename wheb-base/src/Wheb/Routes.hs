@@ -1,4 +1,4 @@
-module Web.Wheb.Routes
+module Wheb.Routes
   (
   -- * URL building
     (</>)
@@ -31,8 +31,8 @@ import Data.Typeable (cast, Typeable)
 import Network.HTTP.Types.Method (StdMethod)
 import Network.HTTP.Types.URI (decodePathSegments, encodePathSegments)
 import Web.Routes (runSite)
-import Web.Wheb.Types
-import Web.Wheb.Utils (builderToText, lazyTextToSBS, spacks, builderToStrictText)
+import Wheb.Types
+import Wheb.Utils (builderToText, lazyTextToSBS, spacks, builderToStrictText)
 
 -- | Build a 'Route' from a 'UrlPat'
 patRoute :: (Maybe TS.Text) -> 

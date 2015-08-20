@@ -51,7 +51,7 @@ Create a new file `Main.hs` with the following contents:
 ``` haskell
 {-# LANGUAGE OverloadedStrings #-}
 
-import           Web.Wheb
+import           Wheb
 
 main :: IO ()
 main = do
@@ -141,7 +141,7 @@ import           Control.Concurrent.STM.TChan
 import           Control.Monad.IO.Class
 import           Data.Monoid
 import qualified Data.ByteString.Lazy as B
-import           Web.Wheb
+import           Wheb
 import           Network.WebSockets as W
 
 data MyApp = MyApp (TChan B.ByteString)
@@ -200,7 +200,7 @@ Lets get started on using the global context. First, we have to define our types
 {-# LANGUAGE OverloadedStrings #-}
 
 import           Data.Monoid ((<>))
-import           Web.Wheb
+import           Wheb
 import qualified Data.Text.Lazy as T
 
 data MyApp = MyApp T.Text

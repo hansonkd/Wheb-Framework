@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards, RankNTypes #-}
 
-module Web.Wheb.WhebT
+module Wheb.WhebT
   (
   -- * ReaderT and StateT Functionality
   -- ** ReaderT
@@ -46,36 +46,38 @@ module Web.Wheb.WhebT
   
   -- * Running Wheb
   , runWhebServer
-  , runWhebServerT
   , runRawHandler
-  , runRawHandlerT
+  , runRawHandler'
   ) where
 
-import Blaze.ByteString.Builder (Builder)
-import Control.Concurrent (forkIO, threadDelay)
-import Control.Concurrent.STM (atomically, readTVar, newTVarIO, writeTVar)
-import Control.Monad.Except (liftM, MonadError(throwError), MonadIO)
-import Control.Monad.Reader (MonadReader(ask))
-import Control.Monad.State (modify, MonadState(get))
+import           Blaze.ByteString.Builder (Builder)
+import           Control.Concurrent (forkIO, threadDelay)
+import           Control.Concurrent.STM (atomically, readTVar, 
+                                         newTVarIO, writeTVar)
+import           Control.Monad (void)
+import           Control.Monad.Except (liftM, MonadError(throwError), MonadIO)
+import           Control.Monad.Reader (MonadReader(ask))
+import           Control.Monad.State.Strict (modify', MonadState(get))
 import qualified Data.ByteString.Lazy as LBS (ByteString, empty)
-import Data.CaseInsensitive (mk)
-import Data.List (find)
+import           Data.CaseInsensitive (mk)
+import           Data.List (find)
+import           Data.String (fromString)
 import qualified Data.Map as M (insert, lookup)
-import Data.Maybe (fromMaybe)
+import           Data.Maybe (fromMaybe)
 import qualified Data.Text as TS
 import qualified Data.Text.Encoding as TS (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Lazy as T
-import Data.Typeable (cast, Typeable)
-import Network.HTTP.Types.Header (Header)
-import Network.HTTP.Types.Status (serviceUnavailable503, status200, status302)
-import Network.HTTP.Types.URI (Query)
-import Network.Wai (defaultRequest, Request(queryString, requestHeaders), responseLBS)
-import Network.Wai.Handler.Warp as W (runSettings, setPort)
-import Network.Wai.Parse (File, Param)
-import System.Posix.Signals (Handler(Catch), installHandler, sigINT, sigTERM)
-import Web.Wheb.Internal (optsToApplication, runDebugHandler)
-import Web.Wheb.Routes (generateUrl, getParam)
-import Web.Wheb.Types
+import           Data.Typeable (cast, Typeable)
+import           Network.HTTP.Types.Header (Header)
+import           Network.HTTP.Types.Status (serviceUnavailable503, status200, status302)
+import           Network.HTTP.Types.URI (Query)
+import           Network.Wai (defaultRequest, Request(queryString, requestHeaders), responseLBS)
+import           Network.Wai.Handler.Warp as W (runSettings, setPort, setHost)
+import           Network.Wai.Parse (File, Param)
+import           System.Posix.Signals (Handler(Catch), installHandler, sigINT, sigTERM)
+import           Wheb.Internal (optsToApplication, runDebugHandler)
+import           Wheb.Routes (generateUrl, getParam)
+import           Wheb.Types
 
 -- * ReaderT and StateT Functionality
 
@@ -98,7 +100,7 @@ getHandlerState :: Monad m => WhebT g s m s
 getHandlerState = WhebT $ liftM reqState get
 
 putHandlerState :: Monad m => s -> WhebT g s m ()
-putHandlerState s = WhebT $ modify (\is -> is {reqState = s})
+putHandlerState s = WhebT $ modify' (\is -> is {reqState = s})
 
 modifyHandlerState :: Monad m => (s -> s) -> WhebT g s m s
 modifyHandlerState f = do
@@ -127,7 +129,7 @@ getSetting'' k d = liftM (fromMaybe d) (getSetting' k)
 
 -- | Get all settings.
 getSettings :: Monad m => WhebT g s m CSettings
-getSettings = WhebT $ liftM (runTimeSettings . globalSettings) ask
+getSettings = WhebT $ liftM (handlerRunTimeSettings) ask
 
 -- * Routes
 
@@ -167,7 +169,7 @@ getRawRoute :: Monad m => TS.Text ->
              WhebT g s m (Maybe (Route g s m))
 getRawRoute n _ = WhebT $ liftM f ask  
     where findRoute (Route {..}) = fromMaybe False (fmap (==n) routeName)  
-          f = ((find findRoute) . appRoutes . globalSettings)    
+          f = ((find findRoute) . handlerAppRoutes)    
 
 -- * Request reading
 
@@ -205,7 +207,7 @@ getRequestHeader k = getRequest >>= f
 
 -- | Set a Strict ByteString header for the response
 setRawHeader :: Monad m => Header -> WhebT g s m ()
-setRawHeader (hn, hc) = WhebT $ modify insertHeader 
+setRawHeader (hn, hc) = WhebT $ modify' insertHeader 
     where insertHeader is@(InternalState {..}) = 
             is { respHeaders = M.insert hn hc respHeaders }
  
@@ -252,46 +254,45 @@ throwRedirect c = do
 -- * Running a Wheb Application
 
 -- | Running a Handler with a custom Transformer
-runRawHandlerT :: WhebOptions g s m ->
-             (m (Either WhebError a) -> IO (Either WhebError a)) ->
+runRawHandler' :: WhebOptions g s m ->
              Request ->
              WhebT g s m a ->
              IO (Either WhebError a)
-runRawHandlerT opts@(WhebOptions {..}) runIO r h = 
-    runIO $ runDebugHandler opts h baseData
-    where baseData = HandlerData startingCtx r ([], []) [] opts
+runRawHandler' opts@(WhebOptions {..}) r h = 
+    runToIO $ runDebugHandler opts h baseData
+    where baseData = HandlerData startingCtx r ([], []) [] runTimeSettings appRoutes
 
--- | Convenience wrapper for 'runRawHandlerT' function in 'IO'
-runRawHandler :: WhebOptions g s IO -> 
-              WhebT g s IO a ->
+-- | Convenience wrapper for 'runRawHandlerT' function
+runRawHandler :: WhebOptions g s m -> 
+              WhebT g s m a ->
               IO (Either WhebError a)
-runRawHandler opts h = runRawHandlerT opts id defaultRequest h
+runRawHandler opts h = runRawHandler' opts defaultRequest h
 
 -- | Run a server with a function to run your inner Transformer to IO and 
 -- generated options
-runWhebServerT :: (forall a . m a -> IO a) ->
-                  WhebOptions g s m ->
-                  IO ()
-runWhebServerT runIO opts@(WhebOptions {..}) = do
+runWhebServer :: String -> Int ->  WhebOptions g s m -> IO ()
+runWhebServer host port opts@(WhebOptions {..}) = do
     putStrLn $ "Now running on port " ++ (show $ port)
 
     forceTVar <- newTVarIO False
 
-    installHandler sigINT catchSig Nothing
-    installHandler sigTERM catchSig Nothing
+    void $ installHandler sigINT catchSig Nothing
+    void $ installHandler sigTERM catchSig Nothing
 
-    forkIO $ runSettings rtSettings $
-        gracefulExit $
-        waiStack $
-        optsToApplication opts runIO
+    void $ forkIO $ runSettings rtSettings $
+            gracefulExit $
+            waiStack $
+            optsToApplication opts
 
     let termSig = (Catch (atomically $ writeTVar forceTVar True >> writeTVar shutdownTVar True))
         installForceKill = installHandler sigTERM termSig Nothing >> installHandler sigINT termSig Nothing
 
-    loop installForceKill
+    void $ loop installForceKill
     putStrLn $ "Waiting for connections to close..."
+    
     waitForConnections forceTVar
     putStrLn $ "Shutting down server..."
+    
     sequence_ cleanupActions
 
   where catchSig = (Catch (atomically $ writeTVar shutdownTVar True))
@@ -309,10 +310,4 @@ runWhebServerT runIO opts@(WhebOptions {..}) = do
           if (openConnections == 0 || force)
             then return ()
             else waitForConnections forceTVar
-        port = fromMaybe 3000 $ 
-          (M.lookup (TS.pack "port") runTimeSettings) >>= (\(MkVal m) -> cast m)
-        rtSettings = W.setPort port warpSettings
-
--- | Convenience wrapper for 'runWhebServerT' function in IO
-runWhebServer :: (WhebOptions g s IO) -> IO ()
-runWhebServer = runWhebServerT id
+        rtSettings = W.setHost (fromString host) $ W.setPort port warpSettings

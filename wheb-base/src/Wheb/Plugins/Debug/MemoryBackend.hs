@@ -1,4 +1,4 @@
-module Web.Wheb.Plugins.Debug.MemoryBackend where
+module Wheb.Plugins.Debug.MemoryBackend where
 
 import Control.Concurrent.STM (atomically, modifyTVar, newTVarIO, readTVarIO, TVar, writeTVar)
 import Control.Monad (liftM)
@@ -7,10 +7,10 @@ import Data.Map as M (alter, delete, empty, insert, lookup, Map, member, update)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.ByteString (ByteString)
-import Web.Wheb (InitM)
-import Web.Wheb.Plugins.Auth
-import Web.Wheb.Plugins.Cache
-import Web.Wheb.Plugins.Session
+import Wheb (InitM)
+import Wheb.Plugins.Auth
+import Wheb.Plugins.Cache
+import Wheb.Plugins.Session
 
 data SessionData = SessionData 
   { sessionMemory ::  TVar (M.Map Text (M.Map Text Text)) }

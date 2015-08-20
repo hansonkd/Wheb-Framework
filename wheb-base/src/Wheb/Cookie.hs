@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Web.Wheb.Cookie
+module Wheb.Cookie
   ( setCookie
   , setCookie'
   , getCookie
@@ -17,8 +17,8 @@ import qualified Data.Text.Encoding as TS (encodeUtf8)
 import Data.Time.Calendar (Day(ModifiedJulianDay))
 import Data.Time.Clock (secondsToDiffTime, UTCTime(UTCTime))
 import Web.Cookie (CookiesText, def, renderSetCookie, SetCookie(..))
-import Web.Wheb.Types
-import Web.Wheb.WhebT (setRawHeader, getSetting'')
+import Wheb.Types
+import Wheb.WhebT (setRawHeader, getSetting'')
 
 getDefaultCookie :: Monad m => WhebT g s m SetCookie
 getDefaultCookie = return def -- Populate with settings...

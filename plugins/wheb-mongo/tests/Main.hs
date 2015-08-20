@@ -9,9 +9,9 @@ import Data.Either (isRight)
 
 import qualified Data.Text.Lazy as T
 
-import           Web.Wheb
-import           Web.Wheb.Plugins.Mongo
-import           Web.Wheb.Plugins.Auth
+import           Wheb
+import           Wheb.Plugins.Mongo
+import           Wheb.Plugins.Auth
 
 data MyApp = MyApp MongoContainer
 data MyRequestState = MyRequestState { curUser :: Maybe AuthUser }
@@ -23,6 +23,27 @@ instance AuthState MyRequestState where
 
 instance MongoApp MyApp where
     getMongoContainer (MyApp mc) = mc
+
+testSessions opts = do
+    void $ runRawHandler opts $ do
+        runDb' $ tableDrop sessTable
+        runDb' $ tableCreate sessTable
+        
+        k <- getSessionValue "someKey"
+        liftIO $ assertBool ("Expected Nothing") (isNothing k)
+        
+        setSessionValue "someKey" "woot"
+        
+        k <- getSessionValue "someKey"
+        liftIO $ assertBool ("Expected woot") ((Just "woot") == k)
+        
+        k <- getSessionValue "someKey"
+        liftIO $ assertBool ("Expected False") ((Just "____") /= k)
+        
+        deleteSessionValue "someKey"
+        
+        k <- getSessionValue "someKey"
+        liftIO $ assertBool ("Expected Nothing") (isNothing k)
 
 testRaw opts = do
     Right results <- runRawHandler opts $ runAction $ do
@@ -72,4 +93,5 @@ main = do
       return (MyApp mongo, MyRequestState Nothing)
     
     defaultMain $ testGroup "Mongo" [ testCase "testRaw" $ testRaw opts
-                                    , testCase "testLogin" $ testLogin opts]
+                                    , testCase "testLogin" $ testLogin opts
+                                    , testCase "testSessions" $ testSessions opts]

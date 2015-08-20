@@ -2,8 +2,8 @@
 
 import qualified Data.Text.Lazy as T
 
-import           Web.Wheb
-import           Web.Wheb.Plugins.Mongo
+import           Wheb
+import           Wheb.Plugins.Mongo
 
 data MyApp = MyApp MongoContainer
 data MyRequestState = MyRequestState

@@ -9,7 +9,7 @@ Adds default instances for 'SessionApp' and 'AuthApp' for 'MongoApp'.
 
 -}
 
-module Web.Wheb.Plugins.Mongo (
+module Wheb.Plugins.Mongo (
       runAction
     , initMongo
     , catchResult
@@ -25,9 +25,9 @@ import           Data.Bson as B
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import           Database.MongoDB
-import           Web.Wheb
-import           Web.Wheb.Plugins.Session
-import           Web.Wheb.Plugins.Auth
+import           Wheb
+import           Wheb.Plugins.Session
+import           Wheb.Plugins.Auth
 
 data MongoContainer = MongoContainer Pipe AccessMode Database
 
@@ -108,7 +108,7 @@ getAuthCollection :: Monad m => WhebT g s m Collection
 getAuthCollection = getSetting'' "auth-collection" "users"
 
 runWithContainer :: MongoContainer -> Action IO a ->  IO a
-runWithContainer (MongoContainer pipe mode db) action = liftIO $ access pipe mode db action
+runWithContainer (MongoContainer pipe mode db) action = access pipe mode db action
 
 -- | Run a MongoDB Action Monad in WhebT
 runAction :: (MongoApp g, MonadIO m) => Action IO a -> WhebT g s m a

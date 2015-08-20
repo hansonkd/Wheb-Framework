@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Web.Wheb.Plugins.Session 
+module Wheb.Plugins.Session 
   ( SessionContainer (..)
   , SessionApp (..)
   , SessionBackend (..)
@@ -20,9 +20,9 @@ import Control.Monad (liftM)
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Maybe (fromMaybe)
 import Data.Text (pack, Text)
-import Web.Wheb (getWithApp, WhebT)
-import Web.Wheb.Cookie (getCookie, setCookie)
-import Web.Wheb.Utils (makeUUID)
+import Wheb (getWithApp, WhebT)
+import Wheb.Cookie (getCookie, setCookie)
+import Wheb.Utils (makeUUID)
 
 -- | Initial pass on abstract plugin for Sessions.
 --   Possibly add support for Typable to ease typecasting.

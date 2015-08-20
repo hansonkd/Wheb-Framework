@@ -4,17 +4,17 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Test.QuickCheck
 import Test.QuickCheck.Gen (choose)
-import Web.Wheb
-import Web.Wheb.Routes (testUrlParser)
+import Wheb
+import Wheb.Routes (testUrlParser)
 
 data UrlPair = UrlPair UrlPat RouteParamList
 
 -- | Produce semi-clean strings of reasonable length to prevent collision.
 genString :: Gen String
-genString = suchThat (listOf $ elements ['a' .. 'Z']) (\n -> (length n) > 5)
+genString = suchThat (listOf $ elements ['a'..'z']) (\n -> (length n) > 5)
 
 instance Show UrlPair where
-    show (UrlPair up pl) = "UrlParser | " ++ (show up)
+    show (UrlPair up pl) = "UrlParser | " ++ (show up) ++ " | " ++ (show pl)
 
 instance Arbitrary UrlPat where
     arbitrary = (sized $ flip vectorOf cs) >>= (return . Composed)
@@ -33,11 +33,11 @@ instance Arbitrary UrlPair where
            loop [] acc = return acc
            loop ((Composed a):ps) acc = loop (a ++ ps) acc
            loop ((FuncChunk n _ IntChunk):ps) acc = do
-                int <- arbitrary :: Gen Int
-                loop ps ((n, MkChunk int):acc)
+                int <- suchThat (arbitrary) (\n -> (n) > 5) :: Gen Int
+                loop ps (acc ++ [(n, MkChunk int)])
            loop ((FuncChunk n _ TextChunk):ps) acc = do
                 text <- arbitrary :: Gen String
-                loop ps ((n, MkChunk $ T.pack text):acc)
+                loop ps (acc ++ [(n, MkChunk $ T.pack text)])
            loop ((Chunk n):ps) acc = loop ps acc
 
 checkURL :: UrlPair -> Bool

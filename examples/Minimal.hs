@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-import           Web.Wheb
+import           Wheb
 
 main :: IO ()
 main = do

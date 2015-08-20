@@ -7,10 +7,10 @@ import           Data.Text (Text)
 import qualified Data.Text.Lazy as L (Text)
 import           Network.HTTP.Types.URI
 
-import           Web.Wheb
-import           Web.Wheb.WhebT (getRawRoute)
-import           Web.Wheb.Routes (matchUrl, testUrlParser)
-import           Web.Wheb.Utils (lazyTextToSBS)
+import           Wheb
+import           Wheb.WhebT (getRawRoute)
+import           Wheb.Routes (matchUrl, testUrlParser)
+import           Wheb.Utils (lazyTextToSBS)
 
 myHandler :: L.Text -> MinHandler
 myHandler = html

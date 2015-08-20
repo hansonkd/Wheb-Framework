@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Web.Wheb.Utils where
+module Wheb.Utils where
 
 import Control.Monad (liftM)
 import Control.Monad.IO.Class (MonadIO(..))
@@ -13,7 +13,7 @@ import qualified Data.Text.Lazy as T (fromStrict, pack, Text, toStrict)
 import qualified Data.Text.Lazy.Encoding as T (decodeUtf8, encodeUtf8)
 import Network.HTTP.Types.Status (status500)
 import Network.Wai (Response, responseBuilder, responseFile, responseLBS, responseToStream)
-import Web.Wheb.Types (HandlerResponse(..), WhebContent(..), WhebError(..), WhebFile(..), WhebHandlerT, WhebT)
+import Wheb.Types (HandlerResponse(..), WhebContent(..), WhebError(..), WhebFile(..), WhebHandlerT, WhebT)
 import Data.UUID (toASCIIBytes)
 import Data.UUID.V4 (nextRandom)
 
@@ -21,6 +21,7 @@ lazyTextToSBS = TS.encodeUtf8 . T.toStrict
 sbsToLazyText = T.fromStrict . TS.decodeUtf8
 builderToText = T.decodeUtf8 . toLazyByteString
 builderToStrictText = TS.decodeUtf8 . toByteString
+
 -- | Show and pack into Lazy 'Text'
 spack :: Show a => a -> T.Text
 spack = T.pack . show
@@ -45,6 +46,7 @@ showResponseBody (HandlerResponse s r) = do
 
 makeUUID :: (MonadIO m) => WhebT g s m TS.Text
 makeUUID = liftM (TS.decodeUtf8 . toASCIIBytes) (liftIO nextRandom)
+
 ----------------------- Instances ------------------------
 instance WhebContent Builder where
   toResponse = responseBuilder

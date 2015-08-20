@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Web.Wheb.Plugins.Auth 
+module Wheb.Plugins.Auth 
   ( 
   -- * Main functions
     login
@@ -37,9 +37,9 @@ import Control.Monad.Except (liftM, MonadError(throwError), MonadIO(..))
 import Crypto.PasswordStore (makePassword, verifyPassword)
 import Data.Text.Encoding as ES (decodeUtf8, encodeUtf8)
 import Data.Text as T (pack, Text)
-import Web.Wheb (getHandlerState, getWithApp, modifyHandlerState', 
+import Wheb (getHandlerState, getWithApp, modifyHandlerState', 
                  WhebError(Error403), WhebHandlerT, WhebMiddleware, WhebT)
-import Web.Wheb.Plugins.Session (deleteSessionValue, getSessionValue', SessionApp, setSessionValue)
+import Wheb.Plugins.Session (deleteSessionValue, getSessionValue', SessionApp, setSessionValue)
     
 -- * Auth functions
 

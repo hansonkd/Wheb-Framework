@@ -61,8 +61,8 @@ description:
   .
   >  import           Control.Monad.Except
   >
-  >  import           Web.Wheb
-  >  import           Web.Wheb.Plugins.Strapped
+  >  import           Wheb
+  >  import           Wheb.Plugins.Strapped
   >  import           Text.Strapped
   >
   >  type MyApp = WhebT MyGlobalCtx () IO
@@ -82,7 +82,7 @@ description:
 
 library
   -- Modules exported by the library.
-  exposed-modules:     Web.Wheb.Plugins.Strapped
+  exposed-modules:     Wheb.Plugins.Strapped
   
   -- Modules included in this library but not exported.
   -- other-modules:       

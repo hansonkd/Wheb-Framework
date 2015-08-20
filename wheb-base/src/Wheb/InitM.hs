@@ -1,6 +1,6 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards, ImpredicativeTypes #-}
 
-module Web.Wheb.InitM
+module Wheb.InitM
   (
   -- * Routes
   -- ** Named routes convenience functions
@@ -43,11 +43,11 @@ import Network.Wai (Middleware)
 import Network.Wai.Handler.Warp (defaultSettings, setOnClose, setOnOpen)
 import Text.Read (readMaybe)
 import Web.Routes (Site(..))
-import Web.Wheb.Routes (patRoute, compilePat)
-import Web.Wheb.Types (CSettings, InitM(..), InitOptions(..), 
+import Wheb.Routes (patRoute, compilePat)
+import Wheb.Types (CSettings, InitM(..), InitOptions(..), 
                        InternalState(InternalState), MinOpts, PackedSite(PackedSite), Route(Route), SettingsValue(MkVal), UrlParser(UrlParser), 
                        UrlPat, WhebHandlerT, WhebMiddleware, WhebOptions(..), SocketRoute(SocketRoute), WhebSocket)
-import Web.Wheb.Utils (defaultErr)
+import Wheb.Utils (defaultErr)
 
 addGET :: T.Text -> UrlPat -> WhebHandlerT g s m -> InitM g s m ()
 addGET n p h = addRoute $ patRoute (Just n) GET p h
@@ -121,16 +121,17 @@ addCleanupHook :: IO () -> InitM g s m ()
 addCleanupHook action = InitM $ tell $ mempty { initCleanup = [action] }
 
 -- | Generate 'WhebOptions' from 'InitM' in 'IO'
-generateOptions :: MonadIO m => InitM g s m (g, s) -> IO (WhebOptions g s m)
-generateOptions m = do 
-  ((g, s), InitOptions {..}) <- runWriterT (runInitM m)
+generateOptionsM :: MonadIO m => InitM g s m (g, s, (forall a . (m a -> IO a))) -> IO (WhebOptions g s m)
+generateOptionsM m = do 
+  ((g, s, r), InitOptions {..}) <- runWriterT (runInitM m)
   tv <- liftIO $ newTVarIO False
   ac <- liftIO $ newTVarIO 0
   let set1 = setOnOpen (\_ -> atomically (addToTVar ac) >> return True) defaultSettings 
       warpsettings = setOnClose (\_ -> atomically (subFromTVar ac)) set1
   return $ WhebOptions { appRoutes = initRoutes
                        , appWhebSockets = initWhebSockets
-                       , appSites  = initSites 
+                       , appSites  = initSites
+                       , commands = initCommands
                        , runTimeSettings = initSettings
                        , warpSettings = warpsettings
                        , startingCtx = g
@@ -140,10 +141,17 @@ generateOptions m = do
                        , defaultErrorHandler = defaultErr
                        , shutdownTVar  = tv
                        , activeConnections = ac
-                       , cleanupActions = initCleanup }
+                       , cleanupActions = initCleanup
+                       , runToIO = r}
   where addToTVar ac = ((readTVar ac) >>= (\cs -> writeTVar ac (succ cs)))
         subFromTVar ac = ((readTVar ac) >>= (\cs -> writeTVar ac (pred cs)))
 
+-- | Generate 'WhebOptions' from 'InitM' in 'IO'
+generateOptions :: InitM g s IO (g, s) -> IO (WhebOptions g s IO)
+generateOptions m = generateOptionsM $ do
+                          (g, s) <- m
+                          return (g, s, id)
+
 -- | Generate options for an application without a context or state
 genMinOpts :: InitM () () IO () -> IO MinOpts
-genMinOpts m = generateOptions (m >> (return ((), ())))
+genMinOpts m = generateOptionsM (m >> (return ((), (), id)))

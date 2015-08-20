@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Web.Wheb.Plugins.Redis (
+module Wheb.Plugins.Redis (
       runRedis
     , initRedis
     , initRedisCache
@@ -18,10 +18,10 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Database.Redis hiding (runRedis)
 import qualified Database.Redis as R
-import Web.Wheb
-import Web.Wheb.Plugins.Cache
-import Web.Wheb.Plugins.Auth
-import Web.Wheb.Plugins.Session
+import Wheb
+import Wheb.Plugins.Cache
+import Wheb.Plugins.Auth
+import Wheb.Plugins.Session
 
 
 sessionPrefix = T.pack "session"
