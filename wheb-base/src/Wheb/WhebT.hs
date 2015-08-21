@@ -215,7 +215,7 @@ setRawHeader (hn, hc) = WhebT $ modify' insertHeader
 setHeader :: Monad m => TS.Text -> TS.Text -> WhebT g s m ()
 setHeader hn hc = setRawHeader (mk $ TS.encodeUtf8 hn, TS.encodeUtf8 hc)
 
--- | Give filepath and content type to serve a file via lazy text.
+-- | Give filepath and content-type to serve a file via lazy text.
 file :: Monad m => TS.Text -> TS.Text -> WhebHandlerT g s m
 file fp ct = do
     setHeader (TS.pack "Content-Type") (ct) 
@@ -233,7 +233,7 @@ text c = do
     setHeader (TS.pack "Content-Type") (TS.pack "text/plain") 
     return $ HandlerResponse status200 c
 
--- | Give content type and Blaze Builder
+-- | Give content-type and Blaze Builder
 builder :: Monad m => TS.Text -> Builder -> WhebHandlerT g s m
 builder c b = do
     setHeader (TS.pack "Content-Type") c 
@@ -262,7 +262,7 @@ runRawHandler' opts@(WhebOptions {..}) r h =
     runToIO $ runDebugHandler opts h baseData
     where baseData = HandlerData startingCtx r ([], []) [] runTimeSettings appRoutes
 
--- | Convenience wrapper for 'runRawHandlerT' function
+-- | Convenience wrapper with 'defaultRequest' for 'runRawHandler''
 runRawHandler :: WhebOptions g s m -> 
               WhebT g s m a ->
               IO (Either WhebError a)

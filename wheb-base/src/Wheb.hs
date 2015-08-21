@@ -10,73 +10,30 @@ import           Data.Text.Lazy (pack)
 main :: IO ()
 main = do
   opts <- generateOptions $ addGET (pack \".\") rootPat $ (text (pack \"Hi!\"))
-  runWhebServer opts
+  runTerminalCommand opts
 @
 
 -}
 module Wheb 
   (
-  -- * Handlers
-  -- ** ReaderT and StateT Functionality
-  -- *** ReaderT
-    getApp
-  , getWithApp
-  -- *** StateT
-  , getHandlerState
-  , putHandlerState
-  , modifyHandlerState
-  , modifyHandlerState'
-  
-  -- ** Dealing with responses
-  -- *** Creating a 'HandlerResponse'
-  , html
-  , text
-  , file
-  , builder
-  , redirect
-  , throwRedirect
-  
-  -- *** Setting a header
-  , setHeader
-  , setRawHeader
-  
-  -- * Cookies
-  , setCookie
-  , setCookie'
-  , getCookie
-  , getCookies
-  , removeCookie
+  -- * Generating an app
+    generateOptions
+  , genMinOpts
+  {-|
 
-  -- * Settings
-  , getSetting
-  , getSetting'
-  , getSetting''
-  , getSettings
-  
-  -- * Routes
-  , getRouteParams
-  , getRouteParam
-  , getRoute
-  , getRoute'
-  
-  -- * Request reading
-  , getRequest
-  , getRequestHeader
-  , getWithRequest
-  , getQueryParams
-  , getPOSTParam
-  , getPOSTParams
-  , getRawPOST
-  
-  -- ** Running Wheb
+  -}
+  -- * Running
+  , runTerminalCommand
+  -- ** Running Wheb Directly
   , runWhebServer
   , runRawHandler
   , runRawHandler'
-  
-  -- ** Running Commands
-  , runTerminalCommand
-    
-  -- * Initialize
+  {-|
+
+  -}
+  -- * Configuring an app
+  -- ** Prelude
+  , addPrelude
   -- ** Routes
   -- *** Named routes convenience functions
   , addGET
@@ -94,7 +51,7 @@ module Wheb
   -- *** Commands Using Optparse-Applicative
   , addOptparseCommand
   , addOptparseIOCommand
-  -- ** Sockets 
+  -- ** WebSockets 
   , addWhebSocket
   -- ** Sites
   , addSite
@@ -108,33 +65,89 @@ module Wheb
   , readSettingsFile
   -- ** Cleanup
   , addCleanupHook
-  -- * Running
-  , generateOptions
-  , genMinOpts
+  {-|
+
+  -}
+  -- * Request Handlers
+  -- ** Access read only resources
+  , getApp
+  , getWithApp
+  -- ** Access mutable resources
+  , getHandlerState
+  , putHandlerState
+  , modifyHandlerState
+  , modifyHandlerState'
+  -- **  Creating a 'HandlerResponse'
+  , html
+  , text
+  , file
+  , builder
+  , redirect
+  , throwRedirect
+  {-|
+
+  -}
+  -- * Headers
+  , setHeader
+  , setRawHeader
+  {-|
+
+  -}
+  -- * Cookies
+  {-|
+    Cookies are stateful - you can set a cookie and retrieve that value in the same request.
+  -}
+  , setCookie
+  , setCookie'
+  , getCookie
+  , getCookies
+  , removeCookie
+  {-|
+
+  -}
+  -- * Settings
+  , getSetting
+  , getSetting'
+  , getSetting''
+  , getSettings
+  {-|
+
+  -}
+  -- * Request reading
+  , getRequest
+  , getRequestHeader
+  , getWithRequest
+  , getQueryParams
+  , getPOSTParam
+  , getPOSTParams
+  , getRawPOST
+  {-|
+
+  -}
   -- * Routes
+  -- ** Generate Route
+  , getRouteParams
+  , getRouteParam
+  , getRoute
+  , getRoute'
   -- ** URL Patterns
   , compilePat
   , rootPat
-  
   -- ** URL building
   , (</>)
   , grabInt
   , grabText
   , pT
   , pS
-  -- ** Prelude
-  , addPrelude
   -- * Utilities
   , spack
   , MonadIO(..)
-  , ExitCode(..)
   -- * Types
   , module Wheb.Types
   ) where
 
 
 import Control.Monad.IO.Class (MonadIO(..))
-import System.Exit (ExitCode(..))
 
 import Wheb.InitM 
 import Wheb.Routes

@@ -4,21 +4,21 @@ module Wheb.Internal where
 
 import qualified Data.CaseInsensitive as CI
 import qualified Data.ByteString.Char8 as B
-import Data.Maybe (fromMaybe)
-import Control.Monad (void)
-import Control.Monad.Except (runExceptT)
-import Control.Monad.Reader (ReaderT(runReaderT))
-import Control.Monad.State.Strict (evalStateT, StateT(runStateT))
+import           Data.Maybe (fromMaybe)
+import           Control.Monad (void)
+import           Control.Monad.Except (runExceptT)
+import           Control.Monad.Reader (ReaderT(runReaderT))
+import           Control.Monad.State.Strict (evalStateT, StateT(runStateT))
 import qualified Data.Map as M (toList)
-import Network.HTTP.Types.Method (parseMethod, StdMethod(GET))
-import Network.Wai (Application, Request(..), Response)
-import Network.Wai.Parse (lbsBackEnd, parseRequestBody)
-import Network.Wai.Handler.WebSockets (websocketsOr)
+import           Network.HTTP.Types.Method (parseMethod, StdMethod(GET))
+import           Network.Wai (Application, Request(..), Response)
+import           Network.Wai.Parse (lbsBackEnd, parseRequestBody)
+import           Network.Wai.Handler.WebSockets (websocketsOr)
 import qualified Network.WebSockets as W
-import Wheb.Routes (findUrlMatch, findSiteMatch, findSocketMatch)
-import Wheb.Types
-import Wheb.Utils (uhOh)
-import Web.Cookie (parseCookiesText)
+import           Wheb.Routes (findUrlMatch, findSiteMatch, findSocketMatch)
+import           Wheb.Types
+import           Wheb.Utils (uhOh)
+import           Web.Cookie (parseCookiesText)
 
 -- * Converting to WAI application
                       
@@ -86,7 +86,7 @@ runWhebHandler (WhebOptions {..}) handler st hd = do
   where convertResponse hds (HandlerResponse status resp) =
                           toResponse status (M.toList hds) resp
 
--- | Same as above but returns arbitrary type for debugging.
+-- | Same as 'runWhebHandler' but returns arbitrary type for debugging.
 runDebugHandler :: Monad m =>
                     WhebOptions g s m ->
                     WhebT g s m a  ->

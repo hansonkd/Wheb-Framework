@@ -31,23 +31,25 @@ module Wheb.InitM
   , genMinOpts
   ) where
 
-import Control.Concurrent.STM (atomically, newTVarIO, readTVar, writeTVar)
-import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.Writer (liftM, MonadWriter(tell), Monoid(mempty), WriterT(runWriterT))
+import           Control.Concurrent.STM (atomically, newTVarIO, readTVar, writeTVar)
+import           Control.Monad.IO.Class (MonadIO(..))
+import           Control.Monad.Writer (liftM, MonadWriter(tell), Monoid(mempty), WriterT(runWriterT))
 import qualified Data.Map as M (empty, fromList)
 import qualified Data.Text as T (lines, pack, splitOn, strip, Text, unpack)
 import qualified Data.Text.IO as T (readFile)
-import Data.Typeable (Typeable)
-import Network.HTTP.Types.Method (StdMethod(DELETE, GET, POST, PUT))
-import Network.Wai (Middleware)
-import Network.Wai.Handler.Warp (defaultSettings, setOnClose, setOnOpen)
-import Text.Read (readMaybe)
-import Web.Routes (Site(..))
-import Wheb.Routes (patRoute, compilePat)
-import Wheb.Types (CSettings, InitM(..), InitOptions(..), 
-                       InternalState(InternalState), MinOpts, PackedSite(PackedSite), Route(Route), SettingsValue(MkVal), UrlParser(UrlParser), 
-                       UrlPat, WhebHandlerT, WhebMiddleware, WhebOptions(..), SocketRoute(SocketRoute), WhebSocket)
-import Wheb.Utils (defaultErr)
+import           Data.Typeable (Typeable)
+import           Network.HTTP.Types.Method (StdMethod(DELETE, GET, POST, PUT))
+import           Network.Wai (Middleware)
+import           Network.Wai.Handler.Warp (defaultSettings, setOnClose, setOnOpen)
+import           Text.Read (readMaybe)
+import           Web.Routes (Site(..))
+import           Wheb.Routes (patRoute, compilePat)
+import           Wheb.Types (CSettings, InitM(..), InitOptions(..), 
+                               InternalState(InternalState), MinOpts, PackedSite(PackedSite), 
+                               Route(Route), SettingsValue(MkVal), UrlParser(UrlParser), 
+                               UrlPat, WhebHandlerT, WhebMiddleware, WhebOptions(..), 
+                               SocketRoute(SocketRoute), WhebSocket)
+import           Wheb.Utils (defaultErr)
 
 addGET :: T.Text -> UrlPat -> WhebHandlerT g s m -> InitM g s m ()
 addGET n p h = addRoute $ patRoute (Just n) GET p h

@@ -3,8 +3,7 @@ module Wheb.Prelude (
       addPrelude
     -- * Individual Components
     -- ** Commands
-    
-    , 
+    , runServerCommand
     ) where
 
 import           Control.Applicative ((<$>), (<*>))
@@ -26,6 +25,7 @@ data RunServer =
               , serverPort :: (Maybe Int)
               } deriving (Show)
 
+-- | Run the server with warp with options from command line.
 runServerCommand :: Command g s m
 runServerCommand = Command (T.pack "runserver") fn
     where fn args opts = do
@@ -55,6 +55,8 @@ runServerCommand = Command (T.pack "runserver") fn
 
              runWhebServer host port opts
 
+-- | Add all available Wheb.Prelude configurations. Automatically called at the
+-- beginning of 'generateOpts'
 addPrelude :: InitM g s m ()
 addPrelude = do
     addCommand' runServerCommand
