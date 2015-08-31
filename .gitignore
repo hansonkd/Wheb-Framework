@@ -10,3 +10,4 @@ workshop/
 .virthualenv
 .stack-work
 stack.yaml
+.idea

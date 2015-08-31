@@ -2,20 +2,22 @@
 
 module Wheb.Utils where
 
-import Control.Monad (liftM)
-import Control.Monad.IO.Class (MonadIO(..))
-import Blaze.ByteString.Builder (Builder, fromLazyByteString, toLazyByteString, toByteString)
-import Data.IORef (atomicModifyIORef, newIORef, readIORef)
-import Data.Monoid ((<>), Monoid(mappend, mempty))
+import           Control.Applicative ((<$>))
+import           Control.Monad (liftM)
+import           Control.Monad.IO.Class (MonadIO(..))
+import           Blaze.ByteString.Builder (Builder, fromLazyByteString, toLazyByteString, toByteString)
+import           Data.IORef (atomicModifyIORef, newIORef, readIORef)
+import           Data.Monoid ((<>), Monoid(mappend, mempty))
 import qualified Data.Text.Encoding as TS (decodeUtf8, encodeUtf8)
 import qualified Data.Text as TS (pack, unpack, Text)
 import qualified Data.Text.Lazy as T (fromStrict, pack, Text, toStrict)
 import qualified Data.Text.Lazy.Encoding as T (decodeUtf8, encodeUtf8)
-import Network.HTTP.Types.Status (status500)
-import Network.Wai (Response, responseBuilder, responseFile, responseLBS, responseToStream)
-import Wheb.Types (HandlerResponse(..), WhebContent(..), WhebError(..), WhebFile(..), WhebHandlerT, WhebT)
-import Data.UUID (toASCIIBytes)
-import Data.UUID.V4 (nextRandom)
+import           Network.HTTP.Types.Status (status500)
+import           Network.Wai (Response, responseBuilder, responseFile, responseLBS, responseToStream)
+import           Wheb.Types (HandlerResponse(..), WhebContent(..), WhebError(..),
+                             WhebFile(..), WhebHandlerT, WhebT)
+import           Data.UUID (toASCIIBytes)
+import           Data.UUID.V4 (nextRandom)
 
 lazyTextToSBS = TS.encodeUtf8 . T.toStrict
 sbsToLazyText = T.fromStrict . TS.decodeUtf8
@@ -42,7 +44,7 @@ showResponseBody (HandlerResponse s r) = do
         flush :: IO ()
         flush = return ()
     streamingBody add flush
-    fmap (T.decodeUtf8 . toLazyByteString) $ readIORef builderRef
+    (T.decodeUtf8 . toLazyByteString) <$> readIORef builderRef
 
 makeUUID :: (MonadIO m) => WhebT g s m TS.Text
 makeUUID = liftM (TS.decodeUtf8 . toASCIIBytes) (liftIO nextRandom)
@@ -60,8 +62,8 @@ instance WhebContent WhebFile where
 ----------------------- Some defaults -----------------------
 defaultErr :: Monad m => WhebError -> WhebHandlerT g s m
 defaultErr (ErrorStatus s t) = return $ HandlerResponse s t
-defaultErr err = return $ HandlerResponse status500 $ 
-            ("<h1>Error: " <> (T.pack $ show err) <> ".</h1>")
+defaultErr err = return $ HandlerResponse status500
+            ("<h1>Error: " <> T.pack (show err) <> ".</h1>")
 
 uhOh :: Response
 uhOh = responseLBS status500 [("Content-Type", "text/html")]

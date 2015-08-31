@@ -46,7 +46,7 @@ import           Web.Routes (Site(..))
 import           Wheb.Routes (patRoute, compilePat)
 import           Wheb.Types (CSettings, InitM(..), InitOptions(..), 
                                InternalState(InternalState), MinOpts, PackedSite(PackedSite), 
-                               Route(Route), SettingsValue(MkVal), UrlParser(UrlParser), 
+                               RouteHandler(..), Route(..), SettingsValue(MkVal), UrlParser(UrlParser),
                                UrlPat, WhebHandlerT, WhebMiddleware, WhebOptions(..), 
                                SocketRoute(SocketRoute), WhebSocket)
 import           Wheb.Utils (defaultErr)
@@ -63,10 +63,10 @@ addPUT n p h = addRoute $ patRoute (Just n) PUT p h
 addDELETE :: T.Text -> UrlPat -> WhebHandlerT g s m -> InitM g s m ()
 addDELETE n p h = addRoute $ patRoute (Just n) DELETE p h
 
-addRoute :: Route g s m -> InitM g s m ()
+addRoute :: RouteHandler g s m -> InitM g s m ()
 addRoute r = addRoutes [r]
 
-addRoutes :: [Route g s m] -> InitM g s m ()
+addRoutes :: [RouteHandler g s m] -> InitM g s m ()
 addRoutes rs = InitM $ tell $ mempty { initRoutes = rs }
 
 addSite :: T.Text -> Site url (WhebHandlerT g s m) -> InitM g s m ()
@@ -77,7 +77,7 @@ addWhebSocket p h = InitM $ tell $ mempty { initWhebSockets = [SocketRoute (comp
 
 -- | Catch all requests regardless of method or path
 catchAll :: WhebHandlerT g s m -> InitM g s m ()
-catchAll h = addRoute $ Route Nothing (const True) parser h
+catchAll h = addRoute $ RouteHandler (Route Nothing (const True) parser) h
         where parser = UrlParser (const (Just [])) (const (Right $ T.pack "/*"))
 
 -- | Add generic "WAI" middleware
@@ -103,7 +103,9 @@ addSettings settings = InitM $ tell $ mempty { initSettings = settings }
 --   Uses default "Text.Read" to try to match 'Int', 'Bool' or 'Float' and will add
 --   specific typed settings for those.
 readSettingsFile :: FilePath -> InitM g s m ()
-readSettingsFile fp = (liftIO $ liftM T.lines (T.readFile fp)) >>= (mapM_ parseLines)
+readSettingsFile fp = do
+        ls <- liftIO $ liftM T.lines (T.readFile fp)
+        mapM_ parseLines ls
   where parseLines line = 
             case T.splitOn (T.pack ":") line of 
                 a:b:_ -> do
@@ -123,30 +125,30 @@ addCleanupHook :: IO () -> InitM g s m ()
 addCleanupHook action = InitM $ tell $ mempty { initCleanup = [action] }
 
 -- | Generate 'WhebOptions' from 'InitM' in 'IO'
-generateOptionsM :: MonadIO m => InitM g s m (g, s, (forall a . (m a -> IO a))) -> IO (WhebOptions g s m)
+generateOptionsM :: MonadIO m => InitM g s m (g, s, forall a . (m a -> IO a)) -> IO (WhebOptions g s m)
 generateOptionsM m = do 
   ((g, s, r), InitOptions {..}) <- runWriterT (runInitM m)
   tv <- liftIO $ newTVarIO False
   ac <- liftIO $ newTVarIO 0
   let set1 = setOnOpen (\_ -> atomically (addToTVar ac) >> return True) defaultSettings 
       warpsettings = setOnClose (\_ -> atomically (subFromTVar ac)) set1
-  return $ WhebOptions { appRoutes = initRoutes
-                       , appWhebSockets = initWhebSockets
-                       , appSites  = initSites
-                       , commands = initCommands
-                       , runTimeSettings = initSettings
-                       , warpSettings = warpsettings
-                       , startingCtx = g
-                       , startingState = InternalState s M.empty []
-                       , waiStack = initWaiMw
-                       , whebMiddlewares = initWhebMw
-                       , defaultErrorHandler = defaultErr
-                       , shutdownTVar  = tv
-                       , activeConnections = ac
-                       , cleanupActions = initCleanup
-                       , runToIO = r}
-  where addToTVar ac = ((readTVar ac) >>= (\cs -> writeTVar ac (succ cs)))
-        subFromTVar ac = ((readTVar ac) >>= (\cs -> writeTVar ac (pred cs)))
+  return WhebOptions { appRoutes = initRoutes
+                     , appWhebSockets = initWhebSockets
+                     , appSites  = initSites
+                     , commands = initCommands
+                     , runTimeSettings = initSettings
+                     , warpSettings = warpsettings
+                     , startingCtx = g
+                     , startingState = InternalState s M.empty []
+                     , waiStack = initWaiMw
+                     , whebMiddlewares = initWhebMw
+                     , defaultErrorHandler = defaultErr
+                     , shutdownTVar  = tv
+                     , activeConnections = ac
+                     , cleanupActions = initCleanup
+                     , runToIO = r}
+  where addToTVar ac = readTVar ac >>= writeTVar ac . succ
+        subFromTVar ac = readTVar ac >>= writeTVar ac . pred
 
 -- | Generate 'WhebOptions' from 'InitM' in 'IO'
 generateOptions :: InitM g s IO (g, s) -> IO (WhebOptions g s IO)
@@ -156,4 +158,4 @@ generateOptions m = generateOptionsM $ do
 
 -- | Generate options for an application without a context or state
 genMinOpts :: InitM () () IO () -> IO MinOpts
-genMinOpts m = generateOptionsM (m >> (return ((), (), id)))
+genMinOpts m = generateOptionsM $ m >> return ((), (), id)

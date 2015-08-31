@@ -1,11 +1,12 @@
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE OverloadedStrings    #-}
 
 {- |
-Basic implementation of MongoDB connection.
+Basic implementation of RethinkDB connection pool.
 
-Adds default instances for 'SessionApp' and 'AuthApp' for 'RethinkApp'.
+Adds instance for 'SessionApp' for 'RethinkApp'.
 
 -}
 
@@ -27,20 +28,21 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Database.RethinkDB as R
 import           Database.RethinkDB.NoClash hiding (runOpts)
+import           Data.Pool
 import           Wheb
 import           Wheb.Plugins.Session
-import           Wheb.Plugins.Auth
 
-data RethinkContainer = RethinkContainer RethinkDBHandle
+
+
+data RethinkContainer = RethinkContainer (Pool RethinkDBHandle)
 
 class RethinkApp a where
     getRethinkContainer :: a -> RethinkContainer
 
 instance RethinkApp a => SessionApp a where
-    getSessionContainer = SessionContainer . getRethinkContainer
+    type SessionAppBackend a = RethinkContainer
+    getSessionContainer = getRethinkContainer
 
-instance RethinkApp a => AuthApp a where
-    getAuthContainer = AuthContainer . getRethinkContainer
 
 instance SessionBackend RethinkContainer where
   backendSessionPut sessId key content mc = do
@@ -59,31 +61,6 @@ instance SessionBackend RethinkContainer where
     mvoid $ runToDatum mc $
       sessionTable # getAll "sessId" [sessId] # delete
 
-instance AuthBackend RethinkContainer where
-  backendGetUser name mc = do
-    authTable <- getAuthTable
-    user <- catchResult $ runToDatum mc $ authTable # get (expr name)
-    return $ fmap (const $ AuthUser name) user
-  backendLogin name pw mc =  do
-    authTable <- getAuthTable
-    user <- catchResult $ runWithContainer mc $ authTable # get (expr name) # (!"password")
-    
-    case fmap (\doc -> (verifyPw pw doc)) user of
-        Just True  -> return (Right $ AuthUser $ name)
-        Just False -> return (Left InvalidPassword)
-        Nothing    -> return (Left UserDoesNotExist)
-  backendRegister user@(AuthUser name) pw mc =  do
-    authTable <- getAuthTable
-    pwHash <- makePwHash pw
-    muser <- catchResult $ runToDatum mc $ authTable # get (expr name)
-    case muser of
-        Just _ -> return (Left DuplicateUsername)
-        Nothing -> do
-            catchResult $ runToDatum mc $ 
-                        authTable # insert  [ "username" := (name)
-                                            , "password" := (pwHash)]
-            return (Right user)
-  backendLogout _ =  getUserSessionKey >>= deleteSessionValue
 
 handleEither :: Monad m => Either RethinkDBError b -> WhebT g s m b
 handleEither = either (throwError . Error500 . TL.pack . show) return
@@ -98,35 +75,35 @@ mvoid m = catchResult m >> return ()
 getSessionTable :: Monad m => WhebT g s m Table
 getSessionTable = table `liftM` getSetting'' "session-table" "sessions"
 
-getAuthTable :: Monad m => WhebT g s m Table
-getAuthTable = table `liftM` getSetting'' "auth-table" "users"
 
 getContainer :: (RethinkApp g, Monad m) => WhebT g s m RethinkContainer
 getContainer = getWithApp getRethinkContainer
 
+runPool :: (Expr query, Result r) => Pool RethinkDBHandle -> query -> IO r
+runPool p q = withResource p $ \h -> run h q
+
 runWithContainer :: (Expr query, Result r) => RethinkContainer -> query ->  IO r
-runWithContainer (RethinkContainer handle) action = R.run handle action
+runWithContainer (RethinkContainer handle) = runPool handle
 
 runToDatum :: Expr query => RethinkContainer -> query -> IO (Maybe Datum) 
-runToDatum (RethinkContainer handle) action = R.run handle action
+runToDatum (RethinkContainer handle) = runPool handle
 
 runDb :: (Expr expr, Result r, MonadIO m, RethinkApp g) => expr -> WhebT g s m r
-runDb expr = (getContainer) >>= (\c -> liftIO $ runWithContainer c $ expr)
+runDb expr = getContainer >>= (\c -> liftIO $ runWithContainer c expr)
 
 runDb' :: (Expr expr, MonadIO m, RethinkApp g) => expr -> WhebT g s m Datum
-runDb' expr = (getContainer) >>= (\(RethinkContainer h) -> liftIO $ R.run' h expr)
+runDb' expr = getContainer >>= (\(RethinkContainer p) -> liftIO $ withResource p $ \h -> run' h expr)
 
 runOpts :: (Expr expr, MonadIO m, RethinkApp g) => [RunFlag] -> expr -> WhebT g s m Datum
-runOpts opts expr = (getContainer) >>= (\(RethinkContainer h) -> liftIO $ R.runOpts h opts expr)
+runOpts opts expr = getContainer >>= (\(RethinkContainer p) -> liftIO $ withResource p $ \h -> R.runOpts h opts expr)
 
-ensureAuthTable :: Monad m => WhebT g s m ()
-ensureAuthTable = do
-    authTable <- getAuthTable
-    return ()
 
 -- | Initialize rethinkDB with \"host\" \"post\" \"password\" and default database.
-initRethinkDB :: T.Text -> Integer -> (Maybe T.Text) -> (Maybe T.Text) -> InitM g s m RethinkContainer
+initRethinkDB :: T.Text -> Integer -> Maybe T.Text -> Maybe T.Text -> InitM g s m RethinkContainer
 initRethinkDB host port password defaultDB = do
-    handle <- liftIO $ connect (T.unpack host) port (fmap T.unpack password)
-    addCleanupHook $ close handle
-    return $ RethinkContainer $ maybe handle (flip use handle . db) defaultDB
+    pool <- liftIO connectDbPool
+    return $ RethinkContainer pool
+    where connectDbPool = createPool connectToDb close 1 10 5
+          connectToDb = do
+            handle <- connect (T.unpack host) port (fmap T.unpack password)
+            return $ maybe handle (flip use handle . db) defaultDB

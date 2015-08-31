@@ -64,11 +64,19 @@ description:
 
 library
   exposed-modules:     Wheb.Plugins.RethinkDB
+
   build-depends:       base >=4.7 && <4.9,
                        text >= 1.0 && < 1.3,
-                       rethinkdb >=0.1 && < 2.1,
-                       Wheb >=0.3 && < 0.4, 
-                       mtl >= 2.2.1 && < 2.3
+                       rethinkdb >=2.1 && < 2.2,
+                       Wheb >=0.3 && < 0.4,
+                       mtl >= 2.2.1 && < 2.3,
+                       resource-pool >= 0.2 && <0.3
+
+  -- Directories containing source files.
+  hs-source-dirs: src
+
+  -- Base language which the package is written in.
+  default-language:    Haskell2010
                        
 test-suite Main
   type:            exitcode-stdio-1.0

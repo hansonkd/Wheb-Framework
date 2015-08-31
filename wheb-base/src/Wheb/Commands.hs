@@ -74,4 +74,4 @@ runTerminalCommand opts = do
                 let lineText = "Available Commands for " ++ prog
                 putStrLn lineText
                 putStrLn $ replicate (length lineText) '-'
-                mapM_ (\(Command cmdname _) -> T.putStrLn $ (T.pack " - ") <> cmdname) (commands opts)
+                mapM_ (\(Command cmdname _) -> T.putStrLn $ T.pack " - " <> cmdname) (commands opts)

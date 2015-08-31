@@ -6,13 +6,13 @@
 
 module Wheb.Plugins.Security where
 
-import Control.Monad
-import Network.Wai
-import Wheb
-import Wheb.Utils
-import Wheb.Plugins.Session
-import Data.Text as T
-import Network.HTTP.Types
+import           Control.Monad
+import           Network.Wai
+import           Wheb.Plugins.Session
+import           Data.Text as T
+import           Network.HTTP.Types
+import           Wheb
+import           Wheb.Utils
 
 -- | A middleware to protect ALL incoming POST requests aginst CSRF, 
 --   throwing the handler upon failure
@@ -32,9 +32,9 @@ csrfProtect fail pass = do
 csrfPassed :: (MonadIO m) => WhebT a b m Bool
 csrfPassed = do
     method <- getWithRequest requestMethod
-    case method == methodPost of
-        False -> return True
-        True -> do
+    if method == methodPost
+        then return True
+        else do
             real_token <- getCSRFToken
             mPostTok <- getPOSTParam "csrf-token"
             case mPostTok of
@@ -43,7 +43,7 @@ csrfPassed = do
                     mReqTok <- getRequestHeader "X-CSRF-TOKEN"
                     case mReqTok of
                         Just reqTok -> return $ real_token == reqTok
-                        Nothing -> return $ False
+                        Nothing -> return False
 
 -- | This will get or generate and set a new CSRF Token in the Cookies
 getCSRFToken :: (MonadIO m) => WhebT a b m T.Text

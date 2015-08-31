@@ -24,7 +24,7 @@ getDefaultCookie :: Monad m => WhebT g s m SetCookie
 getDefaultCookie = return def -- Populate with settings...
 
 setCookie :: Monad m => Text -> Text -> WhebT g s m ()
-setCookie k v = getDefaultCookie >>= (setCookie' k v)
+setCookie k v = getDefaultCookie >>= setCookie' k v
 
 -- | Set a cookie. Looks up setting "enable-secure-cookies" to control turning
 --  HTTPS only cookies on. This should be enabled on production environments.
@@ -38,10 +38,10 @@ setCookie' k v sc = do
                   }
       cookieText = B.toByteString $ renderSetCookie cookie
   setRawHeader ("Set-Cookie", cookieText)
-  WhebT $ modify' (\a -> a {curCookies = [(k,v)] ++ (curCookies a)})
-        
+  WhebT $ modify' (\a -> a {curCookies = (k,v) : curCookies a})
+
 getCookies :: Monad m => WhebT g s m CookiesText
-getCookies = WhebT $ liftM (curCookies) get
+getCookies = WhebT $ liftM curCookies get
 
 getCookie :: Monad m => Text -> WhebT g s m (Maybe Text)
 getCookie k = liftM (lookup k) getCookies

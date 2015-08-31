@@ -1,4 +1,4 @@
-module Wheb.Prelude (
+module Wheb.Prelude.Commands.Server (
     -- * Adding Prelude
       addPrelude
     -- * Individual Components
@@ -20,7 +20,7 @@ import           Wheb.Types
 import           Wheb.WhebT (runWhebServer)
 import           Wheb.Commands (addCommand')
 
-data RunServer = 
+data RunServer =
     RunServer { serverHost :: (Maybe String)
               , serverPort :: (Maybe Int)
               } deriving (Show)
@@ -29,7 +29,7 @@ data RunServer =
 runServerCommand :: Command g s m
 runServerCommand = Command (T.pack "runserver") fn
     where fn args opts = do
-                r <- handleParseResult $ 
+                r <- handleParseResult $
                     execParserPure (prefs idm) parserinfo (map T.unpack args)
                 runServer opts r
           portNumber = optional $ option auto
@@ -43,20 +43,15 @@ runServerCommand = Command (T.pack "runserver") fn
                         <> metavar "HOST"
                         <> help "Host to bind to" )
           parser = RunServer <$> hostName <*> portNumber
-          parserinfo = info 
-                       (helper <*> parser) 
+          parserinfo = info
+                       (helper <*> parser)
                        ( fullDesc
                          <> progDesc "Run the server."
                          <> header "runserver - run wheb with warp" )
-         
+
           runServer opts (RunServer sh sp) = do
              let host = fromMaybe "localhost" sh
                  port = fromMaybe 3000 sp
 
              runWhebServer host port opts
 
--- | Add all available Wheb.Prelude configurations. Automatically called at the
--- beginning of 'generateOpts'
-addPrelude :: InitM g s m ()
-addPrelude = do
-    addCommand' runServerCommand

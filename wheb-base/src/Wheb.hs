@@ -31,9 +31,6 @@ module Wheb
   {-|
 
   -}
-  -- * Configuring an app
-  -- ** Prelude
-  , addPrelude
   -- ** Routes
   -- *** Named routes convenience functions
   , addGET
@@ -156,4 +153,3 @@ import Wheb.Utils
 import Wheb.WhebT 
 import Wheb.Cookie
 import Wheb.Commands
-import Wheb.Prelude

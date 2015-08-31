@@ -1,10 +1,8 @@
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Wheb.Plugins.Session 
-  ( SessionContainer (..)
-  , SessionApp (..)
+  ( SessionApp (..)
   , SessionBackend (..)
   
   , setSessionValue
@@ -16,61 +14,63 @@ module Wheb.Plugins.Session
   , clearSessionKey
   ) where
     
-import Control.Monad (liftM)
-import Control.Monad.IO.Class (MonadIO(..))
-import Data.Maybe (fromMaybe)
-import Data.Text (pack, Text)
-import Wheb (getWithApp, WhebT)
-import Wheb.Cookie (getCookie, setCookie)
-import Wheb.Utils (makeUUID)
+import           Control.Monad (liftM)
+import           Control.Monad.IO.Class (MonadIO(..))
+import           Data.Binary (Binary(..), encode, decodeOrFail)
+import           Data.Maybe (fromMaybe)
+import           Data.Text (pack, Text)
+import           Data.ByteString.Lazy (ByteString)
+import           Wheb (getWithApp, WhebT)
+import           Wheb.Cookie (getCookie, setCookie)
+import           Wheb.Utils (makeUUID)
 
 -- | Initial pass on abstract plugin for Sessions.
 --   Possibly add support for Typable to ease typecasting.
 
-session_cookie_key :: Text
-session_cookie_key = pack "-session-"
+sessionCookieKey :: Text
+sessionCookieKey = pack "-session-"
 
-data SessionContainer = forall r. SessionBackend r => SessionContainer r
-
-class SessionApp a where
-  getSessionContainer :: a -> SessionContainer
+class (SessionBackend (SessionAppBackend a)) => SessionApp a where
+  type SessionAppBackend a :: *
+  getSessionContainer :: a -> SessionAppBackend a
 
 class SessionBackend c where
-  backendSessionPut    :: (SessionApp a, MonadIO m) => Text -> Text -> Text -> c -> WhebT a b m ()
-  backendSessionGet    :: (SessionApp a, MonadIO m) => Text -> Text -> c -> WhebT a b m (Maybe Text)
+  backendSessionPut    :: (SessionApp a, MonadIO m) => Text -> Text -> ByteString -> c -> WhebT a b m ()
+  backendSessionGet    :: (SessionApp a, MonadIO m) => Text -> Text -> c -> WhebT a b m (Maybe ByteString)
   backendSessionDelete :: (SessionApp a, MonadIO m) => Text -> Text -> c -> WhebT a b m ()
   backendSessionClear  :: (SessionApp a, MonadIO m) => Text -> c -> WhebT a b m ()
 
-runWithContainer :: (SessionApp a, MonadIO m) => (forall r. SessionBackend r => r -> WhebT a s m b) -> WhebT a s m b
+runWithContainer :: (SessionApp a, MonadIO m) => (SessionAppBackend a -> WhebT a s m b) -> WhebT a s m b
 runWithContainer f = do
-  SessionContainer sessStore <- getWithApp getSessionContainer
+  sessStore <- getWithApp getSessionContainer
   f sessStore
 
 deleteSessionValue :: (SessionApp a, MonadIO m) => Text -> WhebT a b m ()
-deleteSessionValue key= do
+deleteSessionValue key = do
       sessId <- getCurrentSessionKey 
       runWithContainer $ backendSessionDelete sessId key
 
-setSessionValue :: (SessionApp a, MonadIO m) => Text -> Text -> WhebT a b m ()
+setSessionValue :: (SessionApp a, MonadIO m, Binary a) => Text -> a -> WhebT a b m ()
 setSessionValue key content = do
       sessId <- getCurrentSessionKey 
-      runWithContainer $ backendSessionPut sessId key content
+      runWithContainer $ backendSessionPut sessId key (encode content)
 
-getSessionValue :: (SessionApp a, MonadIO m) => Text -> WhebT a b m (Maybe Text)
+getSessionValue :: (SessionApp a, MonadIO m, Binary a) => Text -> WhebT a b m (Maybe a)
 getSessionValue key = do
       sessId <- getCurrentSessionKey
-      runWithContainer $ backendSessionGet sessId key
+      mval <- runWithContainer $ backendSessionGet sessId key
+      return $ maybe (Nothing) (either (const Nothing) (\(_, _, a) -> a) . decodeOrFail) mval
 
-getSessionValue' :: (SessionApp a, MonadIO m) => Text -> Text -> WhebT a b m Text
+getSessionValue' :: (SessionApp a, MonadIO m, Binary a) => a -> Text -> WhebT a b m a
 getSessionValue' def key = liftM (fromMaybe def) (getSessionValue key)
       
 getSessionCookie :: (SessionApp a, MonadIO m) => WhebT a b m (Maybe Text)
-getSessionCookie = getCookie session_cookie_key
-    
+getSessionCookie = getCookie sessionCookieKey
+
 generateSessionKey :: (SessionApp a, MonadIO m) => WhebT a b m Text
 generateSessionKey = do
   newKey <- makeUUID
-  setCookie session_cookie_key newKey
+  setCookie sessionCookieKey newKey
   return newKey
 
 getCurrentSessionKey :: (SessionApp a, MonadIO m) => WhebT a b m Text

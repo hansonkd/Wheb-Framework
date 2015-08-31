@@ -59,7 +59,7 @@ description:
   .
   Use with language extensions /OverloadedStrings/, /FlexibleInstances/, /MultiParamTypeClasses/
   .
-  >  import           Control.Monad.Except
+  >  import           Control.Monad.Trans.Except
   >
   >  import           Wheb
   >  import           Wheb.Plugins.Strapped

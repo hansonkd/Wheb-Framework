@@ -11,7 +11,7 @@ module Wheb.WhebT
   , putHandlerState
   , modifyHandlerState
   , modifyHandlerState'
-  
+
   -- * Responses
   , setHeader
   , setRawHeader
@@ -21,20 +21,20 @@ module Wheb.WhebT
   , builder
   , redirect
   , throwRedirect
-  
+
   -- * Settings
   , getSetting
   , getSetting'
   , getSetting''
   , getSettings
-  
+
   -- * Routes
   , getRouteParams
   , getRouteParam
   , getRoute
   , getRoute'
   , getRawRoute
-  
+
   -- * Request reading
   , getRequest
   , getRequestHeader
@@ -43,7 +43,7 @@ module Wheb.WhebT
   , getPOSTParam
   , getPOSTParams
   , getRawPOST
-  
+
   -- * Running Wheb
   , runWhebServer
   , runRawHandler
@@ -52,10 +52,11 @@ module Wheb.WhebT
 
 import           Blaze.ByteString.Builder (Builder)
 import           Control.Concurrent (forkIO, threadDelay)
-import           Control.Concurrent.STM (atomically, readTVar, 
+import           Control.Concurrent.STM (atomically, readTVar,
                                          newTVarIO, writeTVar)
-import           Control.Monad (void)
-import           Control.Monad.Except (liftM, MonadError(throwError), MonadIO)
+import           Control.Monad (void, liftM, (>=>), unless)
+import           Control.Monad.IO.Class (MonadIO(..))
+import           Control.Monad.Except (MonadError(throwError))
 import           Control.Monad.Reader (MonadReader(ask))
 import           Control.Monad.State.Strict (modify', MonadState(get))
 import qualified Data.ByteString.Lazy as LBS (ByteString, empty)
@@ -109,7 +110,7 @@ modifyHandlerState f = do
     return s
 
 modifyHandlerState' :: Monad m => (s -> s) -> WhebT g s m ()
-modifyHandlerState' f = modifyHandlerState f >> (return ())
+modifyHandlerState' f = void $ modifyHandlerState f
 
 -- * Settings
 
@@ -119,7 +120,7 @@ getSetting = getSetting'
 
 -- | Open up underlying support for polymorphic global settings
 getSetting' :: (Monad m, Typeable a) => TS.Text -> WhebT g s m (Maybe a)
-getSetting' k = liftM (\cs -> (M.lookup k cs) >>= unwrap) getSettings
+getSetting' k = liftM (M.lookup k >=> unwrap) getSettings
     where unwrap :: Typeable a => SettingsValue -> Maybe a
           unwrap (MkVal a) = cast a
 
@@ -129,7 +130,7 @@ getSetting'' k d = liftM (fromMaybe d) (getSetting' k)
 
 -- | Get all settings.
 getSettings :: Monad m => WhebT g s m CSettings
-getSettings = WhebT $ liftM (handlerRunTimeSettings) ask
+getSettings = WhebT $ liftM handlerRunTimeSettings ask
 
 -- * Routes
 
@@ -156,20 +157,20 @@ getRoute name l = do
             Left err -> throwError $ URLError name err
 
 -- | Generate a route from a name and param list.
-getRoute' :: Monad m => TS.Text -> 
-             RouteParamList -> 
+getRoute' :: Monad m => TS.Text ->
+             RouteParamList ->
              WhebT g s m (Either UrlBuildError TS.Text)
 getRoute' n l = liftM buildRoute (getRawRoute n l)
     where buildRoute (Just (Route {..})) = generateUrl routeParser l
           buildRoute (Nothing)           = Left UrlNameNotFound
 
 -- | Generate the raw route
-getRawRoute :: Monad m => TS.Text -> 
-             RouteParamList -> 
-             WhebT g s m (Maybe (Route g s m))
-getRawRoute n _ = WhebT $ liftM f ask  
-    where findRoute (Route {..}) = fromMaybe False (fmap (==n) routeName)  
-          f = ((find findRoute) . handlerAppRoutes)    
+getRawRoute :: Monad m => TS.Text ->
+             RouteParamList ->
+             WhebT g s m (Maybe (Route))
+getRawRoute n _ = WhebT $ liftM f ask
+    where findRoute (Route {..}) = maybe False (==n) routeName
+          f = find findRoute . handlerAppRoutes
 
 -- * Request reading
 
@@ -191,7 +192,7 @@ getPOSTParams = liftM (fmap f . fst) getRawPOST
 
 -- | Maybe get one param if it exists.
 getPOSTParam :: MonadIO m => TS.Text -> WhebT g s m (Maybe TS.Text)
-getPOSTParam k = liftM (lookup k) getPOSTParams 
+getPOSTParam k = liftM (lookup k) getPOSTParams
 
 -- | Get params from URL (e.g. from '/foo/?q=4')
 getQueryParams :: Monad m => WhebT g s m Query
@@ -201,16 +202,16 @@ getQueryParams = getWithRequest queryString
 getRequestHeader :: Monad m => TS.Text -> WhebT g s m (Maybe TS.Text)
 getRequestHeader k = getRequest >>= f
   where hk = mk $ TS.encodeUtf8 k
-        f = (return . (fmap TS.decodeUtf8) . (lookup hk) . requestHeaders)
+        f = return . fmap TS.decodeUtf8 . lookup hk . requestHeaders
 
 -- * Responses
 
 -- | Set a Strict ByteString header for the response
 setRawHeader :: Monad m => Header -> WhebT g s m ()
-setRawHeader (hn, hc) = WhebT $ modify' insertHeader 
-    where insertHeader is@(InternalState {..}) = 
+setRawHeader (hn, hc) = WhebT $ modify' insertHeader
+    where insertHeader is@(InternalState {..}) =
             is { respHeaders = M.insert hn hc respHeaders }
- 
+
 -- | Set a header for the response
 setHeader :: Monad m => TS.Text -> TS.Text -> WhebT g s m ()
 setHeader hn hc = setRawHeader (mk $ TS.encodeUtf8 hn, TS.encodeUtf8 hc)
@@ -218,25 +219,25 @@ setHeader hn hc = setRawHeader (mk $ TS.encodeUtf8 hn, TS.encodeUtf8 hc)
 -- | Give filepath and content-type to serve a file via lazy text.
 file :: Monad m => TS.Text -> TS.Text -> WhebHandlerT g s m
 file fp ct = do
-    setHeader (TS.pack "Content-Type") (ct) 
+    setHeader (TS.pack "Content-Type") ct
     return $ HandlerResponse status200 (WhebFile fp)
 
 -- | Return simple HTML from lazy Text
 html :: Monad m => T.Text -> WhebHandlerT g s m
 html c = do
-    setHeader (TS.pack "Content-Type") (TS.pack "text/html") 
+    setHeader (TS.pack "Content-Type") (TS.pack "text/html")
     return $ HandlerResponse status200 c
 
--- | Return simple lazy Text 
+-- | Return simple lazy Text
 text :: Monad m => T.Text -> WhebHandlerT g s m
 text c = do
-    setHeader (TS.pack "Content-Type") (TS.pack "text/plain") 
+    setHeader (TS.pack "Content-Type") (TS.pack "text/plain")
     return $ HandlerResponse status200 c
 
 -- | Give content-type and Blaze Builder
 builder :: Monad m => TS.Text -> Builder -> WhebHandlerT g s m
 builder c b = do
-    setHeader (TS.pack "Content-Type") c 
+    setHeader (TS.pack "Content-Type") c
     return $ HandlerResponse status200 b
 
 -- | Redirect to a given URL
@@ -244,35 +245,35 @@ redirect :: Monad m => TS.Text -> WhebHandlerT g s m
 redirect c = do
     setHeader (TS.pack "Location") c
     return $ HandlerResponse status302 T.empty
-    
+
 -- | Thow a redirect as an error
 throwRedirect :: Monad m => TS.Text -> WhebHandlerT g s m
 throwRedirect c = do
     setHeader (TS.pack "Location") c
     throwError $ ErrorStatus status302 T.empty
-    
+
 -- * Running a Wheb Application
 
--- | Running a Handler with a custom Transformer
+-- | Running a Handler with a custom request
 runRawHandler' :: WhebOptions g s m ->
              Request ->
              WhebT g s m a ->
              IO (Either WhebError a)
-runRawHandler' opts@(WhebOptions {..}) r h = 
+runRawHandler' opts@(WhebOptions {..}) r h =
     runToIO $ runDebugHandler opts h baseData
-    where baseData = HandlerData startingCtx r ([], []) [] runTimeSettings appRoutes
+    where baseData = HandlerData startingCtx r ([], []) [] runTimeSettings (map routeInfo appRoutes)
 
 -- | Convenience wrapper with 'defaultRequest' for 'runRawHandler''
-runRawHandler :: WhebOptions g s m -> 
+runRawHandler :: WhebOptions g s m ->
               WhebT g s m a ->
               IO (Either WhebError a)
-runRawHandler opts h = runRawHandler' opts defaultRequest h
+runRawHandler opts = runRawHandler' opts defaultRequest
 
--- | Run a server with a function to run your inner Transformer to IO and 
+-- | Run a server with a function to run your inner Transformer to IO and
 -- generated options
 runWhebServer :: String -> Int ->  WhebOptions g s m -> IO ()
 runWhebServer host port opts@(WhebOptions {..}) = do
-    putStrLn $ "Now running on port " ++ (show $ port)
+    putStrLn $ "Now running on port " ++ show port
 
     forceTVar <- newTVarIO False
 
@@ -284,30 +285,28 @@ runWhebServer host port opts@(WhebOptions {..}) = do
             waiStack $
             optsToApplication opts
 
-    let termSig = (Catch (atomically $ writeTVar forceTVar True >> writeTVar shutdownTVar True))
+    let termSig = Catch (atomically $ writeTVar forceTVar True >> writeTVar shutdownTVar True)
         installForceKill = installHandler sigTERM termSig Nothing >> installHandler sigINT termSig Nothing
 
     void $ loop installForceKill
-    putStrLn $ "Waiting for connections to close..."
+    putStrLn "Waiting for connections to close..."
     
     waitForConnections forceTVar
-    putStrLn $ "Shutting down server..."
+    putStrLn "Shutting down server..."
     
     sequence_ cleanupActions
 
-  where catchSig = (Catch (atomically $ writeTVar shutdownTVar True))
+  where catchSig = Catch (atomically $ writeTVar shutdownTVar True)
         loop terminate = do
           shutDown <- atomically $ readTVar shutdownTVar
-          if shutDown then terminate else (threadDelay 100000) >> loop terminate
+          if shutDown then terminate else threadDelay 100000 >> loop terminate
         gracefulExit app r respond = do
           isExit <- atomically $ readTVar shutdownTVar
-          case isExit of
-              False -> app r respond
-              True  -> respond $ responseLBS serviceUnavailable503 [] LBS.empty
+          if isExit
+              then respond $ responseLBS serviceUnavailable503 [] LBS.empty
+              else app r respond
         waitForConnections forceTVar = do
           openConnections <- atomically $ readTVar activeConnections
           force <- atomically $ readTVar forceTVar
-          if (openConnections == 0 || force)
-            then return ()
-            else waitForConnections forceTVar
+          unless (openConnections == 0 || force) $ waitForConnections forceTVar
         rtSettings = W.setHost (fromString host) $ W.setPort port warpSettings

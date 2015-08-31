@@ -12,7 +12,7 @@ module Wheb.Plugins.Strapped
 
 
 
-import           Control.Monad.Except
+import           Control.Monad.Trans.Except
 
 import           Wheb
 import           Wheb.Plugins.Security
