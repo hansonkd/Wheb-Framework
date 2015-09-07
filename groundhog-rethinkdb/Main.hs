@@ -1,6 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables, FlexibleInstances, FlexibleContexts, OverloadedStrings, TypeFamilies, RecordWildCards, Rank2Types, MultiParamTypeClasses, TemplateHaskell #-}
+{-# LANGUAGE ScopedTypeVariables, FlexibleInstances, FlexibleContexts, OverloadedStrings, TypeFamilies, RecordWildCards, Rank2Types, MultiParamTypeClasses #-}
 {-# LANGUAGE GADTs, TypeFamilies, TemplateHaskell, QuasiQuotes, FlexibleInstances, StandaloneDeriving #-}
-{-# LANGUAGE GADTs, TypeFamilies, ExistentialQuantification, MultiParamTypeClasses, FunctionalDependencies, BangPatterns, FlexibleInstances, GeneralizedNewtypeDeriving, EmptyDataDecls, ConstraintKinds, CPP #-}
 
 import Database.Groundhog
 import Database.Groundhog.Core
@@ -9,14 +8,13 @@ import Database.Groundhog.Expression
 import Database.Groundhog.Generic
 import Database.Groundhog.Generic.Migration hiding (MigrationPack(..))
 import qualified Database.Groundhog.Generic.Migration as GM
-import Database.Groundhog.Generic.Sql
-import Database.Groundhog.Generic.Sql.Functions
 
 import Database.Groundhog.TH
 import Database.Groundhog.Core (Unique(..))
 
 import qualified Database.Groundhog.Generic.PersistBackendHelpers as H
 
+import Data.String (fromString)
 import Control.Arrow ((***))
 import Control.Monad (liftM, forM)
 import Control.Monad.Logger (MonadLogger, NoLoggingT, logDebugS)
@@ -93,9 +91,6 @@ instance PersistField Datum where
   dbType _ _ = DbTypePrimitive DbBlob False Nothing Nothing
 
 
-instance StringLike T.Text where
-  fromChar = T.singleton
-
 newtype RethinkReQL r a = RethinkReQL {runRethink :: r}
 
 instance DbDescriptor Rethink where
@@ -123,7 +118,7 @@ instance (MonadBaseControl IO m, MonadIO m, MonadLogger m) => PersistBackend (Db
   count = count' -- count' cond
   countAll = countAll' -- countAll' fakeV
   project p options = undefined -- project' p options
-  migrate fakeV = return ()
+  migrate = migrate'
 
   executeRaw False query ps = undefined
   executeRaw True query ps = undefined
@@ -133,6 +128,17 @@ instance (MonadBaseControl IO m, MonadIO m, MonadLogger m) => PersistBackend (Db
   insertList l = undefined -- insertList' l
   getList k = undefined -- getList' k
 
+migrate' :: forall m v . (MonadBaseControl IO m, MonadIO m, MonadLogger m, PersistEntity v) => v -> Migration (DbPersist Rethink m)
+migrate' v = runConst
+    where e = entityDef proxy v
+          proxy = undefined :: proxy (Rethink)
+          (constructorNum, uniques) = getUniques proxy v
+          constr = constructors e !! constructorNum
+          uniqueDefs = constrUniques constr
+          tableN = (T.pack $ entityName e)
+          runConst = do
+              return ()
+          
 datumToPersist :: Datum -> PersistValue
 datumToPersist a = fromJust $ resultToMaybe (fromDatum a)
 
@@ -188,7 +194,7 @@ insertCommon' v = do
       constr = if isSimple (constructors e)
         then head $ constructors e
         else constructors e !! constructorNum
-      rql = insertIntoConstructorTable (mainTableName escapeS e) constr (tail vals) 
+      rql = insertIntoConstructorTable (T.pack $ entityName e) constr (tail vals) 
   executeRaw' rql
 
 insert' :: (PersistEntity v, MonadBaseControl IO m, MonadIO m, MonadLogger m) => v -> DbPersist Rethink m (AutoKey v)
@@ -203,7 +209,7 @@ insertBy' :: forall u v m . (MonadBaseControl IO m, MonadIO m, MonadLogger m, Pe
 insertBy' k v = runConst
     where e = entityDef proxy (undefined :: v)
           proxy = undefined :: proxy (Rethink)
-          tableN = (mainTableName escapeS e)
+          tableN = (T.pack $ entityName e)
           u = (undefined :: u (UniqueMarker v) -> u (UniqueMarker v)) k
           indexN = flattenChain (fieldChain proxy u) []
           constr = head $ constructors e
@@ -219,14 +225,14 @@ insertByAll' v = runConst
           (constructorNum, uniques) = getUniques proxy v
           constr = constructors e !! constructorNum
           uniqueDefs = constrUniques constr
-          tableN = (mainTableName escapeS e)
+          tableN = (T.pack $ entityName e)
           conds :: ReQL -> ReQL
           conds a = let group = concat $ zipWith (\uFields (_, uVals) -> zipWith (\e v -> a!e R.== (expr v)) uFields (uVals [])) (mapMaybe f uniqueDefs) (uniques)
                     in case group of
                         [] -> (expr False)
                         _ -> foldl1 (\a b -> a R.&& b) group
           f u@(UniqueDef _ _ uFields) = if null $ rights uFields
-                   then Just $ map expr $ (foldr (flatten escapeS) [] $ getUniqueFields u :: [T.Text])
+                   then Just $ map expr $ (foldr flatten [] $ getUniqueFields u :: [T.Text])
                    else Nothing
           idField = maybe "id" T.pack $ constrAutoKeyName constr
           runConst = do
@@ -241,10 +247,10 @@ get' :: forall m v .
          MonadLogger m,
          PrimitivePersistField (Key v BackendSpecific)
         ) => Key v BackendSpecific -> DbPersist Rethink m (Maybe v)
-get' (!k) = runConst
+get' k = runConst
   where e = entityDef proxy (undefined :: v)
         proxy = undefined :: proxy (Rethink)
-        tableN = (mainTableName escapeS e)
+        tableN = (T.pack $ entityName e)
         constr = head $ constructors e
         runConst = do
             ent <- getAll' (R.PrimaryKey) [toPrimitivePersistValue proxy k] tableN
@@ -254,7 +260,7 @@ getBy' :: forall m v u . (MonadBaseControl IO m, MonadIO m, MonadLogger m, Persi
 getBy' k = runConst
     where e = entityDef proxy (undefined :: v)
           proxy = undefined :: proxy (Rethink)
-          tableN = (mainTableName escapeS e)
+          tableN = (T.pack $ entityName e)
           constr = head $ constructors e
           u = (undefined :: Key v (Unique u) -> u (UniqueMarker v)) k
           indexN = flattenChain (fieldChain proxy u) []
@@ -265,10 +271,10 @@ getBy' k = runConst
             maybe (return Nothing) (fmap (Just . snd) . createEntity e) ent
 
 flattenChain (f, prefix) acc = (case prefix of
-    ((name, EmbeddedDef False _):fs) -> flattenP escapeS (goP (fromString name) fs) f acc
-    _ -> flatten escapeS f acc)
+    ((name, EmbeddedDef False _):fs) -> flattenP (goP (fromString name) fs) f acc
+    _ -> flatten f acc)
 
-goP p ((name, EmbeddedDef False _):fs) = goP (fromString name <> fromChar delim <> p) fs
+goP p ((name, EmbeddedDef False _):fs) = goP (fromString name <> "." <> p) fs
 goP p _ = p
           
 getAll' :: (MonadBaseControl IO m, MonadIO m, MonadLogger m) => Index -> [PersistValue] -> T.Text -> DbPersist Rethink m (Maybe (M.Map T.Text Datum))
@@ -278,7 +284,7 @@ update' :: forall m r v c . (MonadBaseControl IO m, MonadIO m, MonadLogger m, r 
 update' upds conds = runConst
     where e = entityDef proxy (undefined :: v)
           proxy = undefined :: proxy (Rethink)
-          tableN = (mainTableName escapeS e)
+          tableN = (T.pack $ entityName e)
           runConst = executeRaw' $ (table tableN) # R.filter (\a -> createConds a conds) # R.update (\a -> (foldedUpdates))
           foldedUpdates = renderUpdates' upds
  
@@ -286,14 +292,14 @@ delete' :: forall m r v c . (MonadBaseControl IO m, MonadIO m, MonadLogger m, r 
 delete' conds = runConst
      where e = entityDef proxy (undefined :: v)
            proxy = undefined :: proxy (Rethink)
-           tableN = (mainTableName escapeS e)
+           tableN = (T.pack $ entityName e)
            runConst = executeRaw' $ (table tableN) # R.filter (\a -> createConds a conds) # R.delete 
 
 deleteBy' :: forall m v u . (MonadBaseControl IO m, MonadIO m, MonadLogger m, PersistEntity v, PrimitivePersistField (Key v BackendSpecific)) => Key v BackendSpecific -> DbPersist Rethink m ()
 deleteBy' k = runConst
     where e = entityDef proxy (undefined :: v)
           proxy = undefined :: proxy (Rethink)
-          tableN = (mainTableName escapeS e)
+          tableN = (T.pack $ entityName e)
           constr = head $ constructors e
           idName = R.PrimaryKey
           runConst = do
@@ -304,28 +310,28 @@ deleteAll' :: forall m v . (MonadBaseControl IO m, MonadIO m, MonadLogger m, Per
 deleteAll' _ = runConst
     where e = entityDef proxy (undefined :: v)
           proxy = undefined :: proxy (Rethink)
-          tableN = (mainTableName escapeS e)
+          tableN = (T.pack $ entityName e)
           runConst = executeRaw' $ table tableN # R.delete
 
 count' :: forall m r v c . (MonadBaseControl IO m, MonadIO m, MonadLogger m, r ~ RestrictionHolder v c, PersistEntity v, EntityConstr v c) =>  Cond Rethink r -> DbPersist Rethink m Int
 count' conds = runConst
     where e = entityDef proxy (undefined :: v)
           proxy = undefined :: proxy (Rethink)
-          tableN = (mainTableName escapeS e)
+          tableN = (T.pack $ entityName e)
           runConst = executeRaw' $ (table tableN) # R.filter (\a -> createConds a conds) # R.count
 
 countAll' :: forall m r v c . (MonadBaseControl IO m, MonadIO m, MonadLogger m, PersistEntity v) =>  v -> DbPersist Rethink m Int
 countAll' _ = runConst
     where e = entityDef proxy (undefined :: v)
           proxy = undefined :: proxy (Rethink)
-          tableN = (mainTableName escapeS e)
+          tableN = (T.pack $ entityName e)
           runConst = executeRaw' $ (table tableN) # R.count
           
 selectAll' :: forall m v . (PersistEntity v, MonadBaseControl IO m, MonadIO m, MonadLogger m) => DbPersist Rethink m [((AutoKey v), v)]
 selectAll' = runConst
     where e = entityDef proxy (undefined :: v)
           proxy = undefined :: proxy (Rethink)
-          tableN = (mainTableName escapeS e)
+          tableN = (T.pack $ entityName e)
           runConst = do
               datums <- executeRaw' $ table tableN
               mapM (createEntity e) datums
@@ -334,7 +340,7 @@ select' :: forall m db r v c opts . (PersistEntity v, MonadBaseControl IO m, Mon
 select' optsLike = runConst
     where e = entityDef proxy (undefined :: v)
           proxy = undefined :: proxy (Rethink)
-          tableN = (mainTableName escapeS e)
+          tableN = (T.pack $ entityName e)
           opts = getSelectOptions optsLike
           conds = condOptions opts
           runConst = do
@@ -345,7 +351,7 @@ replace' :: forall m r v. (MonadBaseControl IO m, MonadIO m, MonadLogger m, Pers
 replace' k v = runConst
     where e = entityDef proxy (undefined :: v)
           proxy = undefined :: proxy (Rethink)
-          tableN = (mainTableName escapeS e)
+          tableN = (T.pack $ entityName e)
           constr = head $ constructors e
           idName = R.PrimaryKey
           idField = maybe "id" T.pack $ constrAutoKeyName constr
@@ -359,7 +365,7 @@ replaceBy' :: forall m v u . (MonadBaseControl IO m, MonadIO m, MonadLogger m, P
 replaceBy' k v = runConst
     where e = entityDef proxy (undefined :: v)
           proxy = undefined :: proxy (Rethink)
-          tableN = (mainTableName escapeS e)
+          tableN = (T.pack $ entityName e)
           u = (undefined :: u (UniqueMarker v) -> u (UniqueMarker v)) k
           indexN = flattenChain (fieldChain proxy u) []
           idField = maybe "id" T.pack $ constrAutoKeyName constr
@@ -374,7 +380,7 @@ insertIntoConstructorTable tName c vals = (table tName) # R.insert (constructorT
 
 constructorToReQL :: ConstructorDef -> [PersistValue] -> ReQL
 constructorToReQL c vals = expr $ zipWith (:=) fields vals
-  where fields = foldr (flatten escapeS) [] (constrParams c)
+  where fields = foldr flatten [] (constrParams c)
 
 createConds :: ReQL ->  Cond Rethink r -> ReQL
 createConds ent (And c1 c2) = (createConds ent c1) R.&& (createConds ent c2)
@@ -424,7 +430,7 @@ createEntity :: (PersistEntity v, MonadBaseControl IO m, MonadIO m, MonadLogger 
 createEntity e datum = do
   let constrId = maybe 0 id $ M.lookup "desc" datum >>= resultToMaybe . fromDatum
       constr = constructors e !! constrId
-      fields = (maybe "id" T.pack (constrAutoKeyName constr)):(foldr (flatten escapeS) [] (constrParams constr))
+      fields = (maybe "id" T.pack (constrAutoKeyName constr)):(foldr flatten [] (constrParams constr))
   mkEntity proxy constrId $ map (\f -> datumToPersist $ fromJust $ M.lookup f datum) fields
 
   
@@ -459,21 +465,29 @@ escape s = '\"' : s ++ "\""
 escapeS :: T.Text -> T.Text
 escapeS a = a
 
-flattenP :: StringLike s => (s -> s) -> s -> (String, DbType) -> ([s] -> [s])
-flattenP escape prefix (fname, typ) acc = go typ where
+flatten :: (String, DbType) -> ([T.Text] -> [T.Text])
+flatten (fname, typ) acc = go typ where
   go typ' = case typ' of
     DbEmbedded emb _ -> handleEmb emb
-    _            -> escape fullName : acc
-  fullName = prefix <> fromChar delim <> fromString fname
-  handleEmb (EmbeddedDef False ts) = foldr (flattenP escape fullName) acc ts
-  handleEmb (EmbeddedDef True  ts) = foldr (flatten escape) acc ts
+    _            -> fullName : acc
+  fullName = fromString fname
+  handleEmb (EmbeddedDef False ts) = foldr (flattenP fullName) acc ts
+  handleEmb (EmbeddedDef True  ts) = foldr flatten acc ts
+
+flattenP :: T.Text -> (String, DbType) -> ([T.Text] -> [T.Text])
+flattenP prefix (fname, typ) acc = go typ where
+  go typ' = case typ' of
+    DbEmbedded emb _ -> handleEmb emb
+    _            -> fullName : acc
+  fullName = prefix <> "." <> fromString fname
+  handleEmb (EmbeddedDef False ts) = foldr (flattenP fullName) acc ts
+  handleEmb (EmbeddedDef True  ts) = foldr flatten acc ts
 
 proxy :: proxy Rethink
 proxy = error "proxy Rethink"
 
 toEntityPersistValues' :: (MonadBaseControl IO m, MonadIO m, MonadLogger m, PersistEntity v) => v -> DbPersist Rethink m [PersistValue]
 toEntityPersistValues' = liftM ($ []) . toEntityPersistValues
-
 
 data Machine = Machine { modelName :: String, cost :: Double } deriving Show
 data Part = Part { partName :: String, weight :: Int, machine :: DefaultKey Machine }
@@ -499,14 +513,14 @@ main = withRethinkPool "127.0.0.1" 28015 Nothing 5 $ runDbConn $ do
   executeRawCached' $ tableCreate (table "Machine")
   
   megatron <- insert $ Machine "Megatron 5000" 2500.00
-  (!megatron2) <- insert $ Machine "Megatron 1000" 1000.00
+  megatron2 <- insert $ Machine "Megatron 1000" 1000.00
   
-  (!megatron3) <- insertByAll $ Machine "Megatron 1000" 1000.00
-  (!megatron4) <- insertByAll $ Machine "Megatron 3000" 1000.00
+  megatron3 <- insertByAll $ Machine "Megatron 1000" 1000.00
+  megatron4 <- insertByAll $ Machine "Megatron 3000" 1000.00
   
   replace megatron2  $ Machine "Megatron changed" 1000.00
   
-  (!prereplaced) <- get megatron2
+  prereplaced <- get megatron2
   
   liftIO $ do
       print megatron
@@ -516,6 +530,3 @@ main = withRethinkPool "127.0.0.1" 28015 Nothing 5 $ runDbConn $ do
       print (megatron4)
       
       print (prereplaced)
-      
-      
-    
