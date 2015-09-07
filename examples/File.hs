@@ -1,4 +1,4 @@
-import           Web.Wheb
+import           Wheb
 import           Data.Text (Text, pack)
 
 main :: IO ()

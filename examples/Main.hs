@@ -11,14 +11,14 @@ import           Data.Maybe (fromJust, fromMaybe)
 import           Data.Monoid
 import           Network.Wai.Middleware.RequestLogger
 
-import           Web.Wheb
-import           Web.Wheb.Utils (showResponseBody)
+import           Wheb
+import           Wheb.Utils (showResponseBody)
 
-import           Web.Wheb.Plugins.Auth
-import           Web.Wheb.Plugins.Cache
-import           Web.Wheb.Plugins.Session
+import           Wheb.Plugins.Auth
+import           Wheb.Plugins.Cache
+import           Wheb.Plugins.Session
 
-import           Web.Wheb.Plugins.Debug.MemoryBackend
+import           Wheb.Plugins.Debug.MemoryBackend
 
 data GlobalApp = GlobalApp { sessContainer :: SessionContainer
                            , authContainer :: AuthContainer
@@ -101,6 +101,8 @@ interceptMw2 = liftM Just $ html "<h1>Intercept 2</h1>"
 main :: IO ()
 main = do
   opts <- generateOptions $ do
+      addPrelude
+      
       -- | Add standard WAI middlware
       addWAIMiddleware logStdoutDev
 
@@ -130,6 +132,8 @@ main = do
       auth <- initAuthMemory
       cache <- initCacheMemory
       
+      addIOCommand "rock" (const $ print "hi")
+      
       -- | Return your new global context.
       return (GlobalApp sess auth cache, RequestState Nothing)
   
@@ -158,6 +162,7 @@ main = do
     (liftIO . print) =<< login "Joe" "123"
     (liftIO . print) =<< register (AuthUser "Joe") "123"
     (liftIO . print) =<< getCurrentUser
-      
+
+  
   -- | Or run a high speed warp server.
-  runWhebServer opts
+  runTerminalCommand opts

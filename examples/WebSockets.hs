@@ -6,7 +6,7 @@ import           Control.Concurrent.STM.TChan
 import           Control.Monad.IO.Class
 import           Data.Monoid
 import qualified Data.ByteString.Lazy as B
-import           Web.Wheb
+import           Wheb
 import           Network.WebSockets as W
 
 data MyApp = MyApp (TChan B.ByteString)

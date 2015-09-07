@@ -8,7 +8,7 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 import           Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 
-import           Web.Wheb
+import           Wheb
 
 blazeResp :: H.Html -> MinHandler
 blazeResp = builder "text/html" . renderHtmlBuilder

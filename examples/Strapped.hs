@@ -3,11 +3,11 @@
 {-# LANGUAGE OverloadedStrings, FlexibleInstances, MultiParamTypeClasses #-}
 
 import           Control.Monad
-import           Control.Monad.Except
+import           Control.Monad.Trans.Except
 
-import           Web.Wheb
-import           Web.Wheb.Plugins.Strapped
-import           Web.Wheb.Plugins.Security
+import           Wheb
+import           Wheb.Plugins.Strapped
+import           Wheb.Plugins.Security
 import           Text.Strapped
 
 type MyApp = WhebT MyGlobalCtx () IO
